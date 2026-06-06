@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { DateRangePicker, DateRange } from "@/components/ui/date-range-picker";
 
 const ORIGIN_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
   meta_ads:    { label: "Meta Ads",      color: "#3b82f6", icon: "M" },
@@ -43,10 +44,8 @@ interface ConvDetail extends Conversation {
 
 interface AdvancedFilters {
   funnelStageId: string;
-  firstMsgFrom: string;
-  firstMsgTo: string;
-  lastMsgFrom: string;
-  lastMsgTo: string;
+  firstMsgRange: DateRange;
+  lastMsgRange: DateRange;
   utmSource: string;
   utmMedium: string;
   utmCampaign: string;
@@ -55,8 +54,8 @@ interface AdvancedFilters {
 
 const emptyAdvanced: AdvancedFilters = {
   funnelStageId: "",
-  firstMsgFrom: "", firstMsgTo: "",
-  lastMsgFrom: "", lastMsgTo: "",
+  firstMsgRange: { from: "", to: "" },
+  lastMsgRange: { from: "", to: "" },
   utmSource: "", utmMedium: "", utmCampaign: "",
   trackableLinkId: "",
 };
@@ -92,7 +91,12 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
     }
   });
 
-  const advancedActiveCount = Object.entries(advanced).filter(([, v]) => v !== "").length;
+  const advancedActiveCount = [
+    advanced.funnelStageId,
+    advanced.trackableLinkId,
+    advanced.utmSource, advanced.utmMedium, advanced.utmCampaign,
+    advanced.firstMsgRange.from, advanced.lastMsgRange.from,
+  ].filter(Boolean).length;
 
   const setAdv = (patch: Partial<AdvancedFilters>) => setAdvanced((a) => ({ ...a, ...patch }));
 
@@ -167,10 +171,10 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
     if (advanced.utmSource && !c.utmSource?.toLowerCase().includes(advanced.utmSource.toLowerCase())) return false;
     if (advanced.utmMedium && !c.utmMedium?.toLowerCase().includes(advanced.utmMedium.toLowerCase())) return false;
     if (advanced.utmCampaign && !c.utmCampaign?.toLowerCase().includes(advanced.utmCampaign.toLowerCase())) return false;
-    if (advanced.firstMsgFrom && new Date(c.firstMessageAt) < new Date(advanced.firstMsgFrom)) return false;
-    if (advanced.firstMsgTo && new Date(c.firstMessageAt) > new Date(advanced.firstMsgTo + "T23:59:59")) return false;
-    if (advanced.lastMsgFrom && new Date(c.lastMessageAt) < new Date(advanced.lastMsgFrom)) return false;
-    if (advanced.lastMsgTo && new Date(c.lastMessageAt) > new Date(advanced.lastMsgTo + "T23:59:59")) return false;
+    if (advanced.firstMsgRange.from && new Date(c.firstMessageAt) < new Date(advanced.firstMsgRange.from)) return false;
+    if (advanced.firstMsgRange.to && new Date(c.firstMessageAt) > new Date(advanced.firstMsgRange.to + "T23:59:59")) return false;
+    if (advanced.lastMsgRange.from && new Date(c.lastMessageAt) < new Date(advanced.lastMsgRange.from)) return false;
+    if (advanced.lastMsgRange.to && new Date(c.lastMessageAt) > new Date(advanced.lastMsgRange.to + "T23:59:59")) return false;
     return true;
   });
 
@@ -393,31 +397,19 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
               </div>
 
               {/* Datas */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1 border-t border-zinc-800">
-                <div className="space-y-1.5">
-                  <label className="text-xs text-zinc-500 font-medium">Primeira msg — de</label>
-                  <Input type="date" value={advanced.firstMsgFrom}
-                    onChange={(e) => setAdv({ firstMsgFrom: e.target.value })}
-                    className="bg-zinc-800 border-zinc-700 text-zinc-200 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-zinc-500 font-medium">Primeira msg — até</label>
-                  <Input type="date" value={advanced.firstMsgTo}
-                    onChange={(e) => setAdv({ firstMsgTo: e.target.value })}
-                    className="bg-zinc-800 border-zinc-700 text-zinc-200 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-zinc-500 font-medium">Última msg — de</label>
-                  <Input type="date" value={advanced.lastMsgFrom}
-                    onChange={(e) => setAdv({ lastMsgFrom: e.target.value })}
-                    className="bg-zinc-800 border-zinc-700 text-zinc-200 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-zinc-500 font-medium">Última msg — até</label>
-                  <Input type="date" value={advanced.lastMsgTo}
-                    onChange={(e) => setAdv({ lastMsgTo: e.target.value })}
-                    className="bg-zinc-800 border-zinc-700 text-zinc-200 text-sm" />
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 border-t border-zinc-800">
+                <DateRangePicker
+                  label="Período da primeira mensagem"
+                  value={advanced.firstMsgRange}
+                  onChange={(r) => setAdv({ firstMsgRange: r })}
+                  placeholder="Selecionar período"
+                />
+                <DateRangePicker
+                  label="Período da última mensagem"
+                  value={advanced.lastMsgRange}
+                  onChange={(r) => setAdv({ lastMsgRange: r })}
+                  placeholder="Selecionar período"
+                />
               </div>
 
               {advancedActiveCount > 0 && (
