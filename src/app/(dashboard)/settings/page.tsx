@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Download, CheckCircle, Webhook } from "lucide-react";
+import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Download, CheckCircle, Webhook, Trash2, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 
 interface WorkspaceSettings {
@@ -70,6 +70,8 @@ export default function SettingsPage() {
   const [importDone, setImportDone] = useState(false);
   const importAbortRef = useRef<AbortController | null>(null);
   const [configuringWebhook, setConfiguringWebhook] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   async function handleConnectWhatsApp() {
     setConnecting(true);
@@ -167,6 +169,19 @@ export default function SettingsPage() {
     } else {
       const d = await res.json();
       toast.error(d.error ?? "Erro ao configurar webhook");
+    }
+  }
+
+  async function handleClearConversations() {
+    setClearing(true);
+    const res = await fetch("/api/workspace/conversations/clear", { method: "DELETE" });
+    setClearing(false);
+    setConfirmClear(false);
+    if (res.ok) {
+      const d = await res.json();
+      toast.success(`${d.deleted} conversa(s) apagada(s). Novas mensagens chegam automaticamente.`);
+    } else {
+      toast.error("Erro ao apagar conversas");
     }
   }
 
@@ -366,6 +381,50 @@ export default function SettingsPage() {
           <Save className="w-4 h-4 mr-2" />
           {saving ? "Salvando..." : "Salvar Configurações do Pixel"}
         </Button>
+      </Card>
+
+      <Separator className="bg-zinc-800" />
+
+      {/* Zona de perigo */}
+      <Card className="bg-zinc-900/50 border-red-900/40 p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-red-400 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4" />
+          Zona de Perigo
+        </h2>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-zinc-300">Apagar todas as conversas</p>
+            <p className="text-xs text-zinc-600 mt-0.5">Remove o histórico importado. Novas mensagens continuam chegando normalmente pelo WhatsApp.</p>
+          </div>
+
+          {confirmClear ? (
+            <div className="flex items-center gap-2 bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-2 shrink-0">
+              <span className="text-xs text-red-300">Tem certeza?</span>
+              <button
+                onClick={handleClearConversations}
+                disabled={clearing}
+                className="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors"
+              >
+                {clearing ? "Apagando..." : "Sim, apagar tudo"}
+              </button>
+              <span className="text-zinc-700">·</span>
+              <button onClick={() => setConfirmClear(false)} className="text-xs text-zinc-500 hover:text-zinc-300">
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmClear(true)}
+              className="border-red-800 text-red-400 hover:bg-red-900/20 gap-1.5 shrink-0"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Apagar conversas
+            </Button>
+          )}
+        </div>
       </Card>
     </div>
   );
