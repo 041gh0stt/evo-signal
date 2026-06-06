@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ChevronDown, Wifi, WifiOff, Plus, Settings2, Check, Loader2
+  ChevronDown, Wifi, WifiOff, Plus, Settings2, Check
 } from "lucide-react";
-import { toast } from "sonner";
+import { CreateWorkspaceModal } from "@/components/onboarding/CreateWorkspaceModal";
 
 interface Workspace {
   id: string;
@@ -23,9 +23,7 @@ interface HeaderProps {
 export function Header({ activeWorkspace, allWorkspaces }: HeaderProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   async function handleSwitch(workspaceId: string) {
     if (workspaceId === activeWorkspace.id) { setOpen(false); return; }
@@ -38,22 +36,9 @@ export function Header({ activeWorkspace, allWorkspaces }: HeaderProps) {
     window.location.reload();
   }
 
-  async function handleCreate() {
-    if (!newName.trim()) return;
-    const res = await fetch("/api/workspace/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName }),
-    });
-    if (res.ok) {
-      toast.success(`Conta "${newName}" criada!`);
-      setNewName("");
-      setCreating(false);
-      setOpen(false);
-      startTransition(() => router.refresh());
-    } else {
-      toast.error("Erro ao criar conta");
-    }
+  function handleOnboardingCreated() {
+    setShowOnboarding(false);
+    window.location.reload();
   }
 
   const initials = activeWorkspace.name
@@ -64,6 +49,13 @@ export function Header({ activeWorkspace, allWorkspaces }: HeaderProps) {
     .toUpperCase();
 
   return (
+    <>
+    {showOnboarding && (
+      <CreateWorkspaceModal
+        onClose={() => setShowOnboarding(false)}
+        onCreated={handleOnboardingCreated}
+      />
+    )}
     <header className="h-14 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-end px-6 shrink-0 relative z-20">
       {/* Workspace switcher */}
       <div className="relative">
@@ -92,11 +84,7 @@ export function Header({ activeWorkspace, allWorkspaces }: HeaderProps) {
             </p>
           </div>
 
-          {isPending ? (
-            <Loader2 className="w-4 h-4 text-zinc-500 animate-spin" />
-          ) : (
-            <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`} />
-          )}
+          <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`} />
         </button>
 
         {/* Dropdown */}
@@ -146,31 +134,12 @@ export function Header({ activeWorkspace, allWorkspaces }: HeaderProps) {
 
               {/* Footer actions */}
               <div className="border-t border-zinc-800 p-2 space-y-1">
-                {creating ? (
-                  <div className="flex gap-2 p-1">
-                    <input
-                      autoFocus
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setCreating(false); }}
-                      placeholder="Nome do cliente..."
-                      className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-emerald-500"
-                    />
-                    <button
-                      onClick={handleCreate}
-                      className="px-3 py-1.5 bg-emerald-500 text-zinc-900 rounded-lg text-sm font-semibold hover:bg-emerald-400 transition-colors"
-                    >
-                      Criar
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setCreating(true)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" /> Nova conta
-                  </button>
-                )}
+                <button
+                  onClick={() => { setOpen(false); setShowOnboarding(true); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Nova conta
+                </button>
                 <button
                   onClick={() => { setOpen(false); router.push("/clientes"); }}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
@@ -183,5 +152,6 @@ export function Header({ activeWorkspace, allWorkspaces }: HeaderProps) {
         )}
       </div>
     </header>
+    </>
   );
 }
