@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getInstanceStatus, getInstanceInfo } from "@/services/evolution";
@@ -115,8 +116,13 @@ export async function GET() {
       });
 
       // Auto-importa 20 conversas na primeira vez que detecta conexão
+      // Usa after() para garantir execução completa no Vercel após a resposta
       if (!wasConnected) {
-        autoImport(member.workspace.whatsappInstanceId, member.workspace.id);
+        const instanceId = member.workspace.whatsappInstanceId;
+        const wsId = member.workspace.id;
+        after(async () => {
+          await autoImport(instanceId, wsId);
+        });
       }
 
       return NextResponse.json({ connected: true, phone });
