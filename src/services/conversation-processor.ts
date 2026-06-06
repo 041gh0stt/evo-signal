@@ -107,8 +107,9 @@ export async function processMessage(msg: InboundMessage) {
           testEventCode: workspace.metaTestEventCode ?? undefined,
           customData: {
             funnel_stage: stage.name,
-            ...(stage.pixelEventName === "Purchase" && stage.purchaseValue
-              ? { value: stage.purchaseValue, currency: "BRL" }
+            // Purchase exige value + currency obrigatoriamente (Meta API)
+            ...(stage.pixelEventName === "Purchase"
+              ? { value: stage.purchaseValue ?? 0, currency: "BRL" }
               : {}),
           },
         });
