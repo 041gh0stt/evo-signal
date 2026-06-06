@@ -134,7 +134,7 @@ export default async function PixelLogPage() {
                       </Badge>
                       {fire.errorMessage && (
                         <p className="text-[10px] text-red-400/70 leading-tight break-all max-w-[200px]">
-                          {fire.errorMessage.slice(0, 120)}
+                          {fire.errorMessage}
                         </p>
                       )}
                     </>
