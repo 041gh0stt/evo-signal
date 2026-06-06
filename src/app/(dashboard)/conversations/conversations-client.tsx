@@ -52,10 +52,7 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [changingStage, setChangingStage] = useState(false);
   const [stageMenuFor, setStageMenuFor] = useState<string | null>(null);
-  const [lastRefresh, setLastRefresh] = useState(Date.now());
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
 
   // Load conversation detail
   useEffect(() => {
@@ -64,26 +61,7 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
     fetch(`/api/conversations/${selectedId}`)
       .then((r) => r.json())
       .then((d) => { setDetail(d); setLoadingDetail(false); });
-  }, [selectedId, lastRefresh]);
-
-  // Polling: atualiza lista de conversas e detalhe aberto a cada 30s
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        // Atualiza lista
-        const res = await fetch("/api/conversations");
-        if (res.ok) {
-          const data = await res.json();
-          setLocalConvs(data.conversations ?? data);
-        }
-        // Atualiza detalhe se tiver conversa aberta
-        if (selectedIdRef.current) {
-          setLastRefresh(Date.now());
-        }
-      } catch { /* silencia erros de rede */ }
-    }, 30_000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [selectedId]);
 
   // Scroll to bottom on new messages
   useEffect(() => {

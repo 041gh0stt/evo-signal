@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Download, ChevronDown, Link } from "lucide-react";
+import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Download, ChevronDown } from "lucide-react";
 import Image from "next/image";
 
 interface WorkspaceSettings {
@@ -64,8 +64,6 @@ export default function SettingsPage() {
   const [syncLimit, setSyncLimit] = useState<string>("50");
   const [showSyncOptions, setShowSyncOptions] = useState(false);
   const syncBtnRef = useRef<HTMLButtonElement>(null);
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [savingWebhook, setSavingWebhook] = useState(false);
 
   async function handleConnectWhatsApp() {
     setConnecting(true);
@@ -136,28 +134,6 @@ export default function SettingsPage() {
     } finally {
       setSyncing(false);
       setSyncProgress(null);
-    }
-  }
-
-  async function handleSaveWebhook() {
-    if (!webhookUrl) return;
-    setSavingWebhook(true);
-    try {
-      const res = await fetch("/api/workspace/whatsapp/webhook", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: webhookUrl }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        toast.success(`Webhook registrado: ${data.webhookUrl}`);
-      } else {
-        toast.error(data.error ?? "Erro ao registrar webhook");
-      }
-    } catch {
-      toast.error("Falha ao registrar webhook");
-    } finally {
-      setSavingWebhook(false);
     }
   }
 
@@ -288,35 +264,6 @@ export default function SettingsPage() {
 
                 <Button variant="outline" size="sm" className="border-red-800 text-red-400 hover:bg-red-900/20" onClick={handleDisconnect}>
                   Desconectar
-                </Button>
-              </div>
-            </div>
-
-            {/* Webhook URL */}
-            <div className="border border-zinc-800 rounded-xl p-4 space-y-2.5">
-              <div>
-                <p className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                  <Link className="w-3.5 h-3.5 text-zinc-500" />
-                  URL do Webhook
-                </p>
-                <p className="text-[11px] text-zinc-600 mt-0.5">
-                  Para receber mensagens em tempo real. Use o domínio do Vercel ou um túnel ngrok.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  placeholder="https://seu-app.vercel.app"
-                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 text-sm h-8"
-                />
-                <Button
-                  size="sm"
-                  disabled={!webhookUrl || savingWebhook}
-                  onClick={handleSaveWebhook}
-                  className="bg-zinc-700 hover:bg-zinc-600 text-zinc-200 h-8 shrink-0"
-                >
-                  {savingWebhook ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Registrar"}
                 </Button>
               </div>
             </div>
