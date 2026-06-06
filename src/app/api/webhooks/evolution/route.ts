@@ -44,10 +44,12 @@ export async function POST(req: NextRequest) {
     const { event, instance, data } = body;
     // Evolution API v2 pode mandar instance como string ou objeto
     const instanceName = typeof instance === "string" ? instance : (instance?.instanceName ?? instance?.name ?? String(instance));
+    // Normaliza evento: "messages.upsert" → "MESSAGES_UPSERT"
+    const eventKey = (event as string ?? "").toUpperCase().replace(/\./g, "_");
 
-    console.log(`[webhook] event=${event} instanceName=${instanceName}`);
+    console.log(`[webhook] event=${event} eventKey=${eventKey} instanceName=${instanceName}`);
 
-    if (event === "CONNECTION_UPDATE") {
+    if (eventKey === "CONNECTION_UPDATE") {
       const state = data?.state;
       const phone = data?.me?.id?.split(":")?.[0]?.split("@")?.[0] ?? undefined;
       await prisma.workspace.updateMany({
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    if (event === "MESSAGES_UPSERT") {
+    if (eventKey === "MESSAGES_UPSERT") {
       // Evolution API v2 pode mandar: data = objeto único OU data.messages = array
       const messages = Array.isArray(data?.messages)
         ? data.messages
