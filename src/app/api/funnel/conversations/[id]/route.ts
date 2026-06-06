@@ -39,7 +39,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           pixelId: conversation.workspace.metaPixelId,
           accessToken: conversation.workspace.metaAccessToken,
           testEventCode: conversation.workspace.metaTestEventCode ?? undefined,
-          customData: { funnel_stage: stage.name },
+          customData: {
+            funnel_stage: stage.name,
+            // Purchase exige value + currency obrigatoriamente (Meta API)
+            ...(stage.pixelEventName === "Purchase"
+              ? { value: Number(stage.purchaseValue ?? 0), currency: "BRL" }
+              : {}),
+          },
         });
 
         await prisma.pixelFire.update({
