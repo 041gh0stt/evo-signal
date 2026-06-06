@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useTransition } from "react";
+import { useEffect, useState, useCallback, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap } from "lucide-react";
+import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Download, CheckCircle } from "lucide-react";
 import Image from "next/image";
 
 interface WorkspaceSettings {
@@ -65,6 +65,10 @@ export default function SettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [importDone, setImportDone] = useState(false);
+  const importAbortRef = useRef<AbortController | null>(null);
 
   async function handleConnectWhatsApp() {
     setConnecting(true);
@@ -99,6 +103,57 @@ export default function SettingsPage() {
       toast.success("Nome atualizado!");
     } else {
       toast.error("Erro ao salvar nome");
+    }
+  }
+
+  async function handleImport() {
+    if (importing) return;
+    setImporting(true);
+    setImportDone(false);
+    setImportStatus("Iniciando importação...");
+
+    const abort = new AbortController();
+    importAbortRef.current = abort;
+
+    try {
+      const res = await fetch("/api/workspace/whatsapp/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 20 }),
+        signal: abort.signal,
+      });
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "progress") {
+              setImportStatus(`Importando ${event.current}/${event.total}: ${event.contact}`);
+            } else if (event.type === "status") {
+              setImportStatus(event.message);
+            } else if (event.type === "done") {
+              setImportStatus(event.message);
+              setImportDone(true);
+            } else if (event.type === "error") {
+              setImportStatus(`Erro: ${event.message}`);
+            }
+          } catch { /* ignora */ }
+        }
+      }
+    } catch (e: unknown) {
+      if ((e as Error)?.name !== "AbortError") {
+        setImportStatus("Erro ao importar. Tente novamente.");
+      }
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -188,12 +243,33 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium text-zinc-200">{workspace.whatsappPhone ?? "—"}</p>
               </div>
               <div className="flex items-center gap-2">
-                {/* Importar histórico com seletor de quantidade */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={importing}
+                  className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1.5"
+                  onClick={handleImport}
+                >
+                  {importing
+                    ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    : importDone
+                      ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                      : <Download className="w-3.5 h-3.5" />}
+                  {importing ? "Importando..." : "Importar conversas"}
+                </Button>
                 <Button variant="outline" size="sm" className="border-red-800 text-red-400 hover:bg-red-900/20" onClick={handleDisconnect}>
                   Desconectar
                 </Button>
               </div>
             </div>
+            {/* Status da importação */}
+            {importStatus && (
+              <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${importDone ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"}`}>
+                {importing && <RefreshCw className="w-3 h-3 animate-spin shrink-0" />}
+                {importDone && <CheckCircle className="w-3 h-3 shrink-0" />}
+                <span>{importStatus}</span>
+              </div>
+            )}
           </div>
         ) : qrCode ? (
           <div className="flex flex-col items-center gap-3 py-2">
