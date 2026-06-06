@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  accounts      Account[]
+  sessions      Session[]
+  workspaces    WorkspaceMember[]
+  createdAt     DateTime  @default(now())
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Workspace {
+  id                 String             @id @default(cuid())
+  name               String
+  slug               String             @unique
+  whatsappInstanceId String?
+  whatsappConnected  Boolean            @default(false)
+  whatsappPhone      String?
+  metaPixelId        String?
+  metaAccessToken    String?            @db.Text
+  metaTestEventCode  String?
+  members            WorkspaceMember[]
+  trackableLinks     TrackableLink[]
+  conversations      Conversation[]
+  pixelEvents        PixelEventConfig[]
+  funnelStages       FunnelStage[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String    @default("member")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([workspaceId, userId])
+}
+
+model TrackableLink {
+  id                  String         @id @default(cuid())
+  workspaceId         String
+  name                String
+  slug                String
+  utmSource           String?
+  utmMedium           String?
+  utmCampaign         String?
+  utmContent          String?
+  redirectUrl         String?
+  welcomeMessage      String?        @db.Text
+  hasRedirectPage     Boolean        @default(false)
+  redirectPageTitle   String?
+  redirectPageMessage String?
+  redirectDelay       Int            @default(5)
+  clicks              Int            @default(0)
+  workspace           Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversations       Conversation[]
+  createdAt           DateTime       @default(now())
+
+  @@unique([workspaceId, slug])
+}
+
+model FunnelStage {
+  id             String         @id @default(cuid())
+  workspaceId    String
+  name           String
+  color          String         @default("#10b981")
+  order          Int            @default(0)
+  pixelEventName String?
+  triggerKeyword String?        @db.Text
+  isSale         Boolean        @default(false)
+  isFirstContact Boolean        @default(false)
+  purchaseValue  Float?
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversations  Conversation[]
+  createdAt      DateTime       @default(now())
+
+  @@index([workspaceId, order])
+}
+
+model Conversation {
+  id              String             @id @default(cuid())
+  workspaceId     String
+  trackableLinkId String?
+  funnelStageId   String?
+  phone           String
+  name            String?
+  origin          String             @default("untracked")
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  status          String             @default("open")
+  leadScore       Int                @default(0)
+  firstMessageAt  DateTime
+  lastMessageAt   DateTime
+  workspace       Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  trackableLink   TrackableLink?     @relation(fields: [trackableLinkId], references: [id])
+  funnelStage     FunnelStage?       @relation(fields: [funnelStageId], references: [id])
+  messages        Message[]
+  pixelFires      PixelFire[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([workspaceId, phone])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, origin])
+  @@index([workspaceId, funnelStageId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  messageId      String?      @unique
+  direction      String
+  type           String       @default("text")
+  content        String?      @db.Text
+  timestamp      DateTime
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, timestamp])
+}
+
+model PixelEventConfig {
+  id           String      @id @default(cuid())
+  workspaceId  String
+  name         String
+  eventName    String
+  triggerType  String
+  triggerValue String?
+  direction    String      @default("inbound")
+  active       Boolean     @default(true)
+  workspace    Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  pixelFires   PixelFire[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model PixelFire {
+  id             String            @id @default(cuid())
+  conversationId String
+  eventConfigId  String?
+  eventName      String
+  eventId        String            @unique @default(cuid())
+  success        Boolean           @default(false)
+  errorMessage   String?
+  payload        Json?
+  firedAt        DateTime          @default(now())
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  eventConfig    PixelEventConfig? @relation(fields: [eventConfigId], references: [id])
+}
