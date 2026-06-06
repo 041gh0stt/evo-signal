@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Download, ChevronDown } from "lucide-react";
+import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap } from "lucide-react";
 import Image from "next/image";
 
 interface WorkspaceSettings {
@@ -35,6 +35,7 @@ export default function SettingsPage() {
       .then((r) => r.json())
       .then((data) => {
         setWorkspace(data);
+        setWorkspaceName(data.name ?? "");
         setPixelId(data.metaPixelId ?? "");
         setTestCode(data.metaTestEventCode ?? "");
       });
@@ -58,12 +59,8 @@ export default function SettingsPage() {
   }, [polling, checkStatus]);
 
   const [connecting, setConnecting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; contact: string } | null>(null);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
-  const [syncLimit, setSyncLimit] = useState<string>("50");
-  const [showSyncOptions, setShowSyncOptions] = useState(false);
-  const syncBtnRef = useRef<HTMLButtonElement>(null);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   async function handleConnectWhatsApp() {
     setConnecting(true);
@@ -84,56 +81,20 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleSyncHistory() {
-    setShowSyncOptions(false);
-    setSyncing(true);
-    setSyncProgress(null);
-    setSyncStatus("Iniciando...");
-    try {
-      const limit = syncLimit === "all" ? null : parseInt(syncLimit, 10);
-      const res = await fetch("/api/workspace/whatsapp/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit }),
-      });
-      if (!res.body) throw new Error("Sem resposta do servidor");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === "status") {
-              setSyncStatus(event.message);
-            } else if (event.type === "progress") {
-              setSyncProgress({ current: event.current, total: event.total, contact: event.contact });
-              setSyncStatus(`Importando contato ${event.current} de ${event.total}`);
-            } else if (event.type === "done") {
-              toast.success(event.message);
-              setSyncProgress(null);
-              setSyncStatus(null);
-            } else if (event.type === "error") {
-              toast.error(event.message);
-              setSyncStatus(null);
-            }
-          } catch { /* ignora JSON inválido */ }
-        }
-      }
-    } catch {
-      toast.error("Falha ao conectar com a Evolution API");
-      setSyncStatus(null);
-    } finally {
-      setSyncing(false);
-      setSyncProgress(null);
+  async function handleSaveName() {
+    if (!workspaceName.trim()) return;
+    setSavingName(true);
+    const res = await fetch("/api/workspace/rename", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: workspaceName }),
+    });
+    setSavingName(false);
+    if (res.ok) {
+      setWorkspace((w) => w ? { ...w, name: workspaceName } : w);
+      toast.success("Nome atualizado!");
+    } else {
+      toast.error("Erro ao salvar nome");
     }
   }
 
@@ -169,6 +130,30 @@ export default function SettingsPage() {
         <p className="text-sm text-zinc-500 mt-0.5">Conecte seu WhatsApp e configure o Meta Pixel</p>
       </div>
 
+      {/* Nome da conta */}
+      <Card className="bg-zinc-900/50 border-zinc-800 p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-zinc-200">Nome da conta</h2>
+        <div className="flex gap-2">
+          <Input
+            value={workspaceName}
+            onChange={(e) => setWorkspaceName(e.target.value)}
+            placeholder="Ex: Beltez Odontologia"
+            className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600"
+            onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+          />
+          <Button
+            onClick={handleSaveName}
+            disabled={savingName || !workspaceName.trim()}
+            className="bg-zinc-700 hover:bg-zinc-600 text-zinc-200 shrink-0"
+          >
+            {savingName ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          </Button>
+        </div>
+        <p className="text-xs text-zinc-600">Este nome também é usado para identificar a instância do WhatsApp.</p>
+      </Card>
+
+      <Separator className="bg-zinc-800" />
+
       {/* WhatsApp */}
       <Card className="bg-zinc-900/50 border-zinc-800 p-5 space-y-4">
         <div className="flex items-center justify-between">
@@ -199,97 +184,11 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center gap-2">
                 {/* Importar histórico com seletor de quantidade */}
-                <div className="flex">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={syncing}
-                    className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1.5 rounded-r-none border-r-0"
-                    onClick={handleSyncHistory}
-                  >
-                    {syncing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                    {syncing
-                      ? "Importando..."
-                      : syncLimit === "all"
-                        ? "Importar tudo"
-                        : `Importar ${syncLimit} conversas`}
-                  </Button>
-                  <Button
-                    ref={syncBtnRef}
-                    variant="outline"
-                    size="sm"
-                    disabled={syncing}
-                    className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 rounded-l-none px-2"
-                    onClick={() => setShowSyncOptions((v) => !v)}
-                  >
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-
-                {showSyncOptions && (() => {
-                  const rect = syncBtnRef.current?.getBoundingClientRect();
-                  return (
-                    <>
-                      {/* backdrop para fechar ao clicar fora */}
-                      <div className="fixed inset-0 z-40" onClick={() => setShowSyncOptions(false)} />
-                      <div
-                        className="fixed z-50 w-52 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden"
-                        style={{ top: (rect?.bottom ?? 0) + 6, right: window.innerWidth - (rect?.right ?? 0) }}
-                      >
-                        <p className="text-[11px] text-zinc-500 font-semibold uppercase tracking-wider px-3 pt-3 pb-1">Quantas conversas importar?</p>
-                        {[
-                          { value: "20", label: "Últimas 20 conversas" },
-                          { value: "50", label: "Últimas 50 conversas" },
-                          { value: "100", label: "Últimas 100 conversas" },
-                          { value: "200", label: "Últimas 200 conversas" },
-                          { value: "all", label: "Tudo (pode demorar)" },
-                        ].map((opt) => (
-                          <button
-                            key={opt.value}
-                            className={`w-full text-left px-3 py-2.5 text-sm transition-colors flex items-center justify-between
-                              ${syncLimit === opt.value
-                                ? "bg-emerald-500/10 text-emerald-400"
-                                : "text-zinc-300 hover:bg-zinc-800"
-                              }`}
-                            onClick={() => { setSyncLimit(opt.value); setShowSyncOptions(false); }}
-                          >
-                            {opt.label}
-                            {syncLimit === opt.value && <span className="text-emerald-400 text-xs">✓</span>}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  );
-                })()}
-
                 <Button variant="outline" size="sm" className="border-red-800 text-red-400 hover:bg-red-900/20" onClick={handleDisconnect}>
                   Desconectar
                 </Button>
               </div>
             </div>
-
-            {/* Progresso de sincronização */}
-            {syncing && (
-              <div className="bg-zinc-800/60 border border-zinc-700 rounded-xl p-4 space-y-2.5">
-                <div className="flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 text-emerald-400 animate-spin shrink-0" />
-                  <span className="text-sm text-zinc-200 font-medium">{syncStatus ?? "Processando..."}</span>
-                </div>
-                {syncProgress && (
-                  <>
-                    <div className="w-full bg-zinc-700 rounded-full h-1.5">
-                      <div
-                        className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
-                        style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-zinc-500 truncate">
-                      Contato: <span className="text-zinc-400">{syncProgress.contact}</span>
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         ) : qrCode ? (
           <div className="flex flex-col items-center gap-3 py-2">

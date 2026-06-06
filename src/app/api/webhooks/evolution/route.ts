@@ -2,46 +2,88 @@ import { NextRequest, NextResponse } from "next/server";
 import { processMessage } from "@/services/conversation-processor";
 import { prisma } from "@/lib/prisma";
 
+function extractPhone(remoteJid: string): string {
+  // @s.whatsapp.net → número real
+  if (remoteJid.includes("@s.whatsapp.net")) {
+    return remoteJid.replace("@s.whatsapp.net", "");
+  }
+  // @lid → identificador privado, usa prefixo lid_
+  if (remoteJid.includes("@lid")) {
+    return `lid_${remoteJid.replace("@lid", "")}`;
+  }
+  // @c.us → fallback
+  return remoteJid.replace("@c.us", "");
+}
+
+function extractContent(message: Record<string, unknown> | null | undefined): string {
+  if (!message) return "[mídia]";
+  return (
+    (message.conversation as string) ||
+    ((message.extendedTextMessage as Record<string, unknown>)?.text as string) ||
+    ((message.imageMessage as Record<string, unknown>)?.caption as string) ||
+    ((message.videoMessage as Record<string, unknown>)?.caption as string) ||
+    (message.audioMessage ? "[áudio]" : "") ||
+    (message.stickerMessage ? "[sticker]" : "") ||
+    (message.documentMessage ? "[documento]" : "") ||
+    "[mídia]"
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { event, instance, data } = body;
 
+    console.log(`[webhook] event=${event} instance=${instance}`);
+
     if (event === "CONNECTION_UPDATE") {
       const state = data?.state;
+      const phone = data?.me?.id?.split(":")?.[0]?.split("@")?.[0] ?? undefined;
       await prisma.workspace.updateMany({
         where: { whatsappInstanceId: instance },
         data: {
           whatsappConnected: state === "open",
-          whatsappPhone: data?.me?.id?.split(":")[0] ?? undefined,
+          ...(phone && { whatsappPhone: phone }),
         },
       });
       return NextResponse.json({ ok: true });
     }
 
     if (event === "MESSAGES_UPSERT") {
-      const messages = Array.isArray(data?.messages) ? data.messages : [data];
+      // Evolution API v2 pode mandar: data = objeto único OU data.messages = array
+      const messages = Array.isArray(data?.messages)
+        ? data.messages
+        : Array.isArray(data)
+          ? data
+          : [data];
 
       for (const msg of messages) {
         if (!msg?.key?.remoteJid) continue;
 
-        const phone = msg.key.remoteJid.replace("@s.whatsapp.net", "");
-        const isFromMe = msg.key.fromMe === true;
-        const content =
-          msg.message?.conversation ||
-          msg.message?.extendedTextMessage?.text ||
-          msg.message?.imageMessage?.caption ||
-          "[mídia]";
+        const remoteJid: string = msg.key.remoteJid;
 
-        const pushName = msg.pushName;
-        const timestamp = new Date((msg.messageTimestamp ?? Date.now() / 1000) * 1000);
+        // Ignora grupos
+        if (remoteJid.includes("@g.us") || remoteJid.includes("@newsletter")) continue;
+
+        const phone = extractPhone(remoteJid);
+        const isFromMe = msg.key.fromMe === true;
+        const content = extractContent(msg.message);
+        const pushName = msg.pushName ?? null;
+        const tsRaw = msg.messageTimestamp;
+        const timestamp = new Date(
+          typeof tsRaw === "number"
+            ? (tsRaw > 1e10 ? tsRaw : tsRaw * 1000)
+            : Date.now()
+        );
+
+        console.log(`[webhook] msg phone=${phone} fromMe=${isFromMe} content="${content.slice(0, 50)}"`);
 
         await processMessage({
           workspaceId: "",
           phone,
           name: pushName,
           content,
-          messageId: msg.key.id,
+          messageId: msg.key.id ?? `${phone}_${timestamp.getTime()}`,
           timestamp,
           direction: isFromMe ? "outbound" : "inbound",
           instanceName: instance,
