@@ -29,8 +29,7 @@ export async function POST() {
 
   // Usa o nome do workspace para gerar o instanceName
   const instanceName = workspace.whatsappInstanceId
-    ?? toInstanceName(workspace.name)
-    || `ws_${workspace.id.slice(0, 8)}`;
+    ?? (toInstanceName(workspace.name) || `ws_${workspace.id.slice(0, 8)}`);
 
   try {
     if (!workspace.whatsappInstanceId) {
