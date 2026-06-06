@@ -33,32 +33,21 @@ export async function processMessage(msg: InboundMessage) {
   }
   console.log(`[processMessage] workspace=${workspace.id} (${workspace.name})`);
 
-  // Mensagens outbound (enviadas por você) só são salvas se já existe conversa com esse contato
-  // Não cria conversa nova para mensagens que você enviou — só inbound cria
-  if (msg.direction === "outbound") {
-    const existing = await prisma.conversation.findUnique({
-      where: { workspaceId_phone: { workspaceId: workspace.id, phone: msg.phone } },
-      select: { id: true },
-    });
-    if (!existing) {
-      console.log(`[processMessage] skipping outbound — no existing conv for phone=${msg.phone}`);
-      return;
-    }
-  }
-
-  // Upsert conversation
+  // Upsert conversation — cria para inbound E outbound
+  // Para outbound, não usa pushName (seria seu próprio nome, não o do contato)
   const conversation = await prisma.conversation.upsert({
     where: { workspaceId_phone: { workspaceId: workspace.id, phone: msg.phone } },
     create: {
       workspaceId: workspace.id,
       phone: msg.phone,
-      name: msg.name,
+      // Inbound: pushName é o contato. Outbound: não tem nome confiável, deixa null
+      name: msg.direction === "inbound" ? (msg.name ?? null) : null,
       firstMessageAt: msg.timestamp,
       lastMessageAt: msg.timestamp,
     },
     update: {
       lastMessageAt: msg.timestamp,
-      // Só atualiza o nome com mensagens inbound — outbound traz o nome do remetente (você), não do contato
+      // Só atualiza o nome com mensagens inbound — outbound traz seu próprio nome
       ...(msg.direction === "inbound" && msg.name && { name: msg.name }),
     },
   });
