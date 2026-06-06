@@ -66,7 +66,7 @@ export default async function PixelLogPage() {
 
       {/* Table */}
       <Card className="bg-zinc-900/50 border-zinc-800 overflow-hidden">
-        <div className="grid grid-cols-[1fr_1fr_1fr_1fr_80px] gap-4 px-4 py-3 border-b border-zinc-800 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+        <div className="grid grid-cols-[1fr_1fr_1fr_1fr_160px] gap-4 px-4 py-3 border-b border-zinc-800 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
           <span>Lead</span>
           <span>Evento</span>
           <span>Gatilho</span>
@@ -88,7 +88,7 @@ export default async function PixelLogPage() {
             return (
               <div
                 key={fire.id}
-                className="grid grid-cols-[1fr_1fr_1fr_1fr_80px] gap-4 px-4 py-3.5 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/20 transition-colors items-center"
+                className="grid grid-cols-[1fr_1fr_1fr_1fr_160px] gap-4 px-4 py-3.5 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/20 transition-colors items-center"
               >
                 {/* Lead */}
                 <div className="min-w-0">
@@ -122,15 +122,22 @@ export default async function PixelLogPage() {
                 </div>
 
                 {/* Status */}
-                <div>
+                <div className="space-y-1">
                   {fire.success ? (
                     <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1 text-xs">
                       <CheckCircle className="w-3 h-3" /> OK
                     </Badge>
                   ) : (
-                    <Badge className="bg-red-500/10 text-red-400 border-red-500/20 gap-1 text-xs" title={fire.errorMessage ?? ""}>
-                      <XCircle className="w-3 h-3" /> Falha
-                    </Badge>
+                    <>
+                      <Badge className="bg-red-500/10 text-red-400 border-red-500/20 gap-1 text-xs">
+                        <XCircle className="w-3 h-3" /> Falha
+                      </Badge>
+                      {fire.errorMessage && (
+                        <p className="text-[10px] text-red-400/70 leading-tight break-all max-w-[200px]">
+                          {fire.errorMessage.slice(0, 120)}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
