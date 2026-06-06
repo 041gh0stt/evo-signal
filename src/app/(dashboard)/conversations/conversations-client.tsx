@@ -95,38 +95,38 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
       .then((d) => { setDetail(d); setLoadingDetail(false); });
   }, [selectedId]);
 
-  // SSE — escuta mensagens novas em tempo real
+  // Polling a cada 8s — mais confiável que SSE no Vercel Hobby (limite 10s/função)
   useEffect(() => {
-    const es = new EventSource("/api/conversations/stream");
+    let lastConvSnapshot = JSON.stringify(localConvs.map(c => ({ id: c.id, lastMsg: c.lastMessageAt })));
 
-    es.onmessage = (e) => {
-      if (!e.data || e.data.startsWith(":")) return;
+    const poll = setInterval(async () => {
       try {
-        const event = JSON.parse(e.data);
-        if (event.type === "new_message") {
-          // Atualiza lista de conversas
-          refreshList();
+        const res = await fetch("/api/conversations");
+        const data = await res.json();
+        if (!Array.isArray(data)) return;
 
-          // Se a conversa aberta recebeu mensagem, recarrega o detalhe
-          if (selectedIdRef.current === event.conversationId) {
-            fetch(`/api/conversations/${event.conversationId}`)
-              .then((r) => r.json())
-              .then((d) => setDetail(d));
-          } else {
-            // Notifica que chegou mensagem em outra conversa
-            const name = event.name ?? event.phone;
-            toast(`Nova mensagem de ${name}`, { duration: 4000 });
+        const newSnapshot = JSON.stringify(data.map((c: Conversation) => ({ id: c.id, lastMsg: c.lastMessageAt })));
+        if (newSnapshot === lastConvSnapshot) return;
+        lastConvSnapshot = newSnapshot;
+
+        setLocalConvs(data);
+        setSyncing(false);
+
+        // Verifica se a conversa aberta tem mensagens novas
+        if (selectedIdRef.current) {
+          const updated = data.find((c: Conversation) => c.id === selectedIdRef.current);
+          const current = localConvs.find(c => c.id === selectedIdRef.current);
+          if (updated && current && String(updated.lastMessageAt) !== String(current.lastMessageAt)) {
+            fetch(`/api/conversations/${selectedIdRef.current}`)
+              .then(r => r.json())
+              .then(d => setDetail(d));
           }
         }
-      } catch { /* ignora */ }
-    };
+      } catch { /* ignora erro de rede */ }
+    }, 8000);
 
-    es.onerror = () => {
-      // EventSource tenta reconectar automaticamente
-    };
-
-    return () => es.close();
-  }, [refreshList]);
+    return () => clearInterval(poll);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll to bottom on new messages
   useEffect(() => {

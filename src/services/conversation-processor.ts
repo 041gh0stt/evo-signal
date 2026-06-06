@@ -13,6 +13,8 @@ interface InboundMessage {
 }
 
 export async function processMessage(msg: InboundMessage) {
+  console.log(`[processMessage] instanceName=${msg.instanceName} phone=${msg.phone} content="${msg.content.slice(0, 40)}"`);
+
   const workspace = await prisma.workspace.findFirst({
     where: { whatsappInstanceId: msg.instanceName },
     include: {
@@ -25,7 +27,11 @@ export async function processMessage(msg: InboundMessage) {
     },
   });
 
-  if (!workspace) return;
+  if (!workspace) {
+    console.log(`[processMessage] NO WORKSPACE found for instanceName=${msg.instanceName}`);
+    return;
+  }
+  console.log(`[processMessage] workspace=${workspace.id} (${workspace.name})`);
 
   // Upsert conversation
   const conversation = await prisma.conversation.upsert({
@@ -44,15 +50,22 @@ export async function processMessage(msg: InboundMessage) {
   });
 
   // Save message
-  await prisma.message.create({
-    data: {
-      conversationId: conversation.id,
-      messageId: msg.messageId,
-      direction: msg.direction,
-      content: msg.content,
-      timestamp: msg.timestamp,
-    },
-  }).catch(() => {}); // ignore duplicate messageId
+  try {
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        messageId: msg.messageId,
+        direction: msg.direction,
+        content: msg.content,
+        timestamp: msg.timestamp,
+      },
+    });
+    console.log(`[processMessage] message saved convId=${conversation.id} msgId=${msg.messageId}`);
+  } catch (e: unknown) {
+    // Ignora duplicata (messageId já existe), loga outros erros
+    const code = (e as { code?: string })?.code;
+    if (code !== "P2002") console.error(`[processMessage] message.create error:`, e);
+  }
 
   const contentLower = msg.content.toLowerCase();
 
