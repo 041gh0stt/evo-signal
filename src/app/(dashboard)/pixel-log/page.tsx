@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { auth } from "@/lib/auth";
 import { getActiveWorkspace } from "@/lib/workspace";
 import { prisma } from "@/lib/prisma";

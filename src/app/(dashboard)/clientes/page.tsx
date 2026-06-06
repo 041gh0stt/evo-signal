@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getUserWorkspaces, getActiveWorkspace } from "@/lib/workspace";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
