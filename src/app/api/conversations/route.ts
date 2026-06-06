@@ -16,6 +16,7 @@ export async function GET() {
     take: 200,
     include: {
       funnelStage: true,
+      trackableLink: { select: { id: true, name: true, slug: true } },
       _count: { select: { messages: true, pixelFires: true } },
     },
   });
