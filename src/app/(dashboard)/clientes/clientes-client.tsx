@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   Users, Wifi, WifiOff, MessageSquare, Zap,
-  Plus, ArrowRight, Check, Search
+  Plus, ArrowRight, Check, Search, Trash2, AlertTriangle,
 } from "lucide-react";
 
 interface Workspace {
@@ -33,6 +33,8 @@ export function ClientesClient({ workspaces, activeWorkspaceId }: Props) {
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = workspaces.filter((w) =>
     w.name.toLowerCase().includes(search.toLowerCase())
@@ -64,6 +66,24 @@ export function ClientesClient({ workspaces, activeWorkspaceId }: Props) {
       startTransition(() => router.refresh());
     } else {
       toast.error("Erro ao criar conta");
+    }
+  }
+
+  async function handleDelete(workspaceId: string) {
+    setDeleting(true);
+    const res = await fetch("/api/workspace/delete", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspaceId }),
+    });
+    setDeleting(false);
+    setConfirmDeleteId(null);
+    if (res.ok) {
+      toast.success("Conta apagada");
+      startTransition(() => router.refresh());
+    } else {
+      const data = await res.json();
+      toast.error(data.error ?? "Erro ao apagar conta");
     }
   }
 
@@ -226,24 +246,55 @@ export function ClientesClient({ workspaces, activeWorkspaceId }: Props) {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0">
-                  {isActive ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-zinc-700 text-zinc-400 text-xs gap-1.5"
-                      onClick={() => router.push("/settings")}
-                    >
-                      <Users className="w-3.5 h-3.5" /> Configurar
-                    </Button>
+                  {confirmDeleteId === ws.id ? (
+                    // Confirmação inline
+                    <div className="flex items-center gap-2 bg-red-950/40 border border-red-800/50 rounded-lg px-3 py-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                      <span className="text-xs text-red-300">Apagar tudo?</span>
+                      <button
+                        onClick={() => handleDelete(ws.id)}
+                        disabled={deleting}
+                        className="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        {deleting ? "Apagando..." : "Sim"}
+                      </button>
+                      <span className="text-zinc-700">·</span>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   ) : (
-                    <Button
-                      size="sm"
-                      disabled={isPending}
-                      className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs gap-1.5 border border-zinc-700"
-                      onClick={() => handleSwitch(ws.id)}
-                    >
-                      Acessar <ArrowRight className="w-3.5 h-3.5" />
-                    </Button>
+                    <>
+                      {isActive ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-zinc-700 text-zinc-400 text-xs gap-1.5"
+                          onClick={() => router.push("/settings")}
+                        >
+                          <Users className="w-3.5 h-3.5" /> Configurar
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          disabled={isPending}
+                          className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs gap-1.5 border border-zinc-700"
+                          onClick={() => handleSwitch(ws.id)}
+                        >
+                          Acessar <ArrowRight className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      <button
+                        onClick={() => setConfirmDeleteId(ws.id)}
+                        className="p-1.5 rounded-md text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        title="Apagar conta"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
