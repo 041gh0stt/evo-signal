@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useTransition, useRef } from "react";
+import { useEffect, useState, useCallback, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Download, CheckCircle, Webhook, Trash2, AlertTriangle } from "lucide-react";
+import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Trash2, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 
 interface WorkspaceSettings {
@@ -51,7 +51,7 @@ export default function SettingsPage() {
       setWorkspace((w) => w ? { ...w, whatsappConnected: true, whatsappPhone: data.phone } : w);
       setQrCode(null);
       setPolling(false);
-      toast.success("WhatsApp conectado! Importando conversas...");
+      toast.success("WhatsApp conectado!");
       startTransition(() => router.refresh());
     }
   }, []);
@@ -65,11 +65,6 @@ export default function SettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
   const [savingName, setSavingName] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [importStatus, setImportStatus] = useState<string | null>(null);
-  const [importDone, setImportDone] = useState(false);
-  const importAbortRef = useRef<AbortController | null>(null);
-  const [configuringWebhook, setConfiguringWebhook] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearing, setClearing] = useState(false);
 
@@ -106,69 +101,6 @@ export default function SettingsPage() {
       toast.success("Nome atualizado!");
     } else {
       toast.error("Erro ao salvar nome");
-    }
-  }
-
-  async function handleImport() {
-    if (importing) return;
-    setImporting(true);
-    setImportDone(false);
-    setImportStatus("Iniciando importação...");
-
-    const abort = new AbortController();
-    importAbortRef.current = abort;
-
-    try {
-      const res = await fetch("/api/workspace/whatsapp/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit: 20 }),
-        signal: abort.signal,
-      });
-
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === "progress") {
-              setImportStatus(`Importando ${event.current}/${event.total}: ${event.contact}`);
-            } else if (event.type === "status") {
-              setImportStatus(event.message);
-            } else if (event.type === "done") {
-              setImportStatus(event.message);
-              setImportDone(true);
-            } else if (event.type === "error") {
-              setImportStatus(`Erro: ${event.message}`);
-            }
-          } catch { /* ignora */ }
-        }
-      }
-    } catch (e: unknown) {
-      if ((e as Error)?.name !== "AbortError") {
-        setImportStatus("Erro ao importar. Tente novamente.");
-      }
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  async function handleConfigureWebhook() {
-    setConfiguringWebhook(true);
-    const res = await fetch("/api/workspace/whatsapp/configure-webhook", { method: "POST" });
-    setConfiguringWebhook(false);
-    if (res.ok) {
-      toast.success("Webhook reconfigurado! Mensagens em tempo real ativadas.");
-    } else {
-      const d = await res.json();
-      toast.error(d.error ?? "Erro ao configurar webhook");
     }
   }
 
@@ -250,7 +182,6 @@ export default function SettingsPage() {
               <QrCode className="w-4 h-4 text-emerald-400" />
               Conexão WhatsApp
             </h2>
-            <p className="text-xs text-zinc-500 mt-0.5">Via Evolution API</p>
           </div>
           {workspace.whatsappConnected ? (
             <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 gap-1.5">
@@ -270,49 +201,10 @@ export default function SettingsPage() {
                 <p className="text-xs text-zinc-500">Número conectado</p>
                 <p className="text-sm font-medium text-zinc-200">{workspace.whatsappPhone ?? "—"}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={importing}
-                  className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1.5"
-                  onClick={handleImport}
-                >
-                  {importing
-                    ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    : importDone
-                      ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                      : <Download className="w-3.5 h-3.5" />}
-                  {importing ? "Importando..." : "Importar conversas"}
-                </Button>
-                <Button variant="outline" size="sm" className="border-red-800 text-red-400 hover:bg-red-900/20" onClick={handleDisconnect}>
+              <Button variant="outline" size="sm" className="border-red-800 text-red-400 hover:bg-red-900/20" onClick={handleDisconnect}>
                   Desconectar
                 </Button>
               </div>
-            </div>
-            {/* Reconfigurar webhook */}
-            <div className="flex items-center justify-between pt-1 border-t border-zinc-800">
-              <p className="text-xs text-zinc-600">Mensagens não chegando em tempo real?</p>
-              <button
-                onClick={handleConfigureWebhook}
-                disabled={configuringWebhook}
-                className="text-xs text-zinc-500 hover:text-emerald-400 flex items-center gap-1 transition-colors"
-              >
-                {configuringWebhook
-                  ? <RefreshCw className="w-3 h-3 animate-spin" />
-                  : <Webhook className="w-3 h-3" />}
-                {configuringWebhook ? "Configurando..." : "Reconfigurar webhook"}
-              </button>
-            </div>
-
-            {/* Status da importação */}
-            {importStatus && (
-              <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${importDone ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"}`}>
-                {importing && <RefreshCw className="w-3 h-3 animate-spin shrink-0" />}
-                {importDone && <CheckCircle className="w-3 h-3 shrink-0" />}
-                <span>{importStatus}</span>
-              </div>
-            )}
           </div>
         ) : qrCode ? (
           <div className="flex flex-col items-center gap-3 py-2">
