@@ -11,7 +11,7 @@ export function middleware(req: NextRequest) {
 
   const isLoggedIn = !!sessionToken;
 
-  if (!isLoggedIn && !isAuthPage && !pathname.startsWith("/onboarding") && !pathname.startsWith("/demo") && !pathname.startsWith("/demo-funil") && !pathname.startsWith("/demo-conversas")) {
+  if (!isLoggedIn && !isAuthPage && !pathname.startsWith("/onboarding") && !pathname.startsWith("/demo") && !pathname.startsWith("/demo-funil") && !pathname.startsWith("/demo-conversas") && !pathname.startsWith("/r/")) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
