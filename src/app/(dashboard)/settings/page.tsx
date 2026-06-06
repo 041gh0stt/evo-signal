@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Download, CheckCircle } from "lucide-react";
+import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Download, CheckCircle, Webhook } from "lucide-react";
 import Image from "next/image";
 
 interface WorkspaceSettings {
@@ -69,6 +69,7 @@ export default function SettingsPage() {
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [importDone, setImportDone] = useState(false);
   const importAbortRef = useRef<AbortController | null>(null);
+  const [configuringWebhook, setConfiguringWebhook] = useState(false);
 
   async function handleConnectWhatsApp() {
     setConnecting(true);
@@ -154,6 +155,18 @@ export default function SettingsPage() {
       }
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function handleConfigureWebhook() {
+    setConfiguringWebhook(true);
+    const res = await fetch("/api/workspace/whatsapp/configure-webhook", { method: "POST" });
+    setConfiguringWebhook(false);
+    if (res.ok) {
+      toast.success("Webhook reconfigurado! Mensagens em tempo real ativadas.");
+    } else {
+      const d = await res.json();
+      toast.error(d.error ?? "Erro ao configurar webhook");
     }
   }
 
@@ -262,6 +275,21 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </div>
+            {/* Reconfigurar webhook */}
+            <div className="flex items-center justify-between pt-1 border-t border-zinc-800">
+              <p className="text-xs text-zinc-600">Mensagens não chegando em tempo real?</p>
+              <button
+                onClick={handleConfigureWebhook}
+                disabled={configuringWebhook}
+                className="text-xs text-zinc-500 hover:text-emerald-400 flex items-center gap-1 transition-colors"
+              >
+                {configuringWebhook
+                  ? <RefreshCw className="w-3 h-3 animate-spin" />
+                  : <Webhook className="w-3 h-3" />}
+                {configuringWebhook ? "Configurando..." : "Reconfigurar webhook"}
+              </button>
+            </div>
+
             {/* Status da importação */}
             {importStatus && (
               <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${importDone ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-400"}`}>

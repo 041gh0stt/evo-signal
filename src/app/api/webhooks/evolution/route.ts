@@ -29,18 +29,29 @@ function extractContent(message: Record<string, unknown> | null | undefined): st
   );
 }
 
+// GET para verificação de saúde do webhook
+export async function GET() {
+  return NextResponse.json({ ok: true, endpoint: "evolution-webhook" });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { event, instance, data } = body;
 
-    console.log(`[webhook] event=${event} instance=${instance}`);
+    // Log completo para diagnóstico no Vercel
+    console.log("[webhook] RAW:", JSON.stringify(body).slice(0, 500));
+
+    const { event, instance, data } = body;
+    // Evolution API v2 pode mandar instance como string ou objeto
+    const instanceName = typeof instance === "string" ? instance : (instance?.instanceName ?? instance?.name ?? String(instance));
+
+    console.log(`[webhook] event=${event} instanceName=${instanceName}`);
 
     if (event === "CONNECTION_UPDATE") {
       const state = data?.state;
       const phone = data?.me?.id?.split(":")?.[0]?.split("@")?.[0] ?? undefined;
       await prisma.workspace.updateMany({
-        where: { whatsappInstanceId: instance },
+        where: { whatsappInstanceId: instanceName },
         data: {
           whatsappConnected: state === "open",
           ...(phone && { whatsappPhone: phone }),
@@ -86,7 +97,7 @@ export async function POST(req: NextRequest) {
           messageId: msg.key.id ?? `${phone}_${timestamp.getTime()}`,
           timestamp,
           direction: isFromMe ? "outbound" : "inbound",
-          instanceName: instance,
+          instanceName,
         });
       }
     }
