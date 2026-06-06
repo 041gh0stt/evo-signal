@@ -51,6 +51,8 @@ export async function fireConversionEvent({
 
   const url = `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${accessToken}`;
 
+  console.log("[meta-pixel] payload:", JSON.stringify(payload));
+
   try {
     const { data } = await axios.post(url, payload);
     return data;
