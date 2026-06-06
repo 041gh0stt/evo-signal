@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
       // Envia heartbeat imediato para manter conexão aberta
       controller.enqueue(encoder.encode(": heartbeat\n\n"));
 
-      // Timestamp da última verificação
-      let lastCheck = new Date();
+      // Olha 10s atrás para não perder mensagens salvas antes da conexão SSE abrir
+      let lastCheck = new Date(Date.now() - 10_000);
 
       const interval = setInterval(async () => {
         if (closed) { clearInterval(interval); return; }

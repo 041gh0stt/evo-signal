@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,8 @@ interface WorkspaceSettings {
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
   const [workspace, setWorkspace] = useState<WorkspaceSettings | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
@@ -48,7 +51,8 @@ export default function SettingsPage() {
       setWorkspace((w) => w ? { ...w, whatsappConnected: true, whatsappPhone: data.phone } : w);
       setQrCode(null);
       setPolling(false);
-      toast.success("WhatsApp conectado com sucesso!");
+      toast.success("WhatsApp conectado! Importando conversas...");
+      startTransition(() => router.refresh());
     }
   }, []);
 
@@ -102,6 +106,7 @@ export default function SettingsPage() {
     await fetch("/api/workspace/whatsapp/disconnect", { method: "POST" });
     setWorkspace((w) => w ? { ...w, whatsappConnected: false, whatsappPhone: null } : w);
     toast.success("WhatsApp desconectado");
+    startTransition(() => router.refresh());
   }
 
   async function handleSavePixel() {

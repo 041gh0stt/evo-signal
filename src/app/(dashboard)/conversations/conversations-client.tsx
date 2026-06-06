@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -52,16 +52,39 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [changingStage, setChangingStage] = useState(false);
   const [stageMenuFor, setStageMenuFor] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(true); // mostra banner por 8s ao carregar
+  // syncing = true quando a lista está vazia ao carregar (auto-import em andamento)
+  const [syncing, setSyncing] = useState(conversations.length === 0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
 
-  // Esconde banner de sync após 8s
-  useEffect(() => {
-    const t = setTimeout(() => setSyncing(false), 8000);
-    return () => clearTimeout(t);
+  const refreshList = useCallback(() => {
+    return fetch("/api/conversations")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setLocalConvs(data);
+          setSyncing(false);
+        }
+        return Array.isArray(data) ? data : [];
+      });
   }, []);
+
+  // Polling quando a lista está vazia (auto-import rodando em background)
+  useEffect(() => {
+    if (!syncing) return;
+    let attempts = 0;
+    const maxAttempts = 20; // 20 × 3s = 60s máximo
+    const poll = setInterval(async () => {
+      attempts++;
+      const data = await refreshList();
+      if (data.length > 0 || attempts >= maxAttempts) {
+        clearInterval(poll);
+        setSyncing(false);
+      }
+    }, 3000);
+    return () => clearInterval(poll);
+  }, [syncing, refreshList]);
 
   // Load conversation detail
   useEffect(() => {
@@ -82,9 +105,7 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
         const event = JSON.parse(e.data);
         if (event.type === "new_message") {
           // Atualiza lista de conversas
-          fetch("/api/conversations")
-            .then((r) => r.json())
-            .then((data) => setLocalConvs(Array.isArray(data) ? data : []));
+          refreshList();
 
           // Se a conversa aberta recebeu mensagem, recarrega o detalhe
           if (selectedIdRef.current === event.conversationId) {
@@ -105,7 +126,7 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
     };
 
     return () => es.close();
-  }, []);
+  }, [refreshList]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
