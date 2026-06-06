@@ -14,7 +14,12 @@ export async function PATCH(req: NextRequest) {
 
   await prisma.workspace.update({
     where: { id: workspace.id },
-    data: { metaPixelId, metaAccessToken, metaTestEventCode },
+    data: {
+      metaPixelId,
+      metaTestEventCode,
+      // Só atualiza o token se foi enviado (evita apagar token salvo)
+      ...(metaAccessToken !== undefined ? { metaAccessToken } : {}),
+    },
   });
 
   return NextResponse.json({ ok: true });

@@ -20,6 +20,7 @@ interface WorkspaceSettings {
   whatsappInstanceId: string | null;
   metaPixelId: string | null;
   metaTestEventCode: string | null;
+  hasAccessToken: boolean;
 }
 
 export default function SettingsPage() {
@@ -32,6 +33,7 @@ export default function SettingsPage() {
   const [accessToken, setAccessToken] = useState("");
   const [testCode, setTestCode] = useState("");
   const [saving, setSaving] = useState(false);
+  const [tokenSaved, setTokenSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/workspace/current")
@@ -41,6 +43,7 @@ export default function SettingsPage() {
         setWorkspaceName(data.name ?? "");
         setPixelId(data.metaPixelId ?? "");
         setTestCode(data.metaTestEventCode ?? "");
+        setTokenSaved(!!data.hasAccessToken);
       });
   }, []);
 
@@ -129,11 +132,18 @@ export default function SettingsPage() {
     const res = await fetch("/api/workspace/pixel", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ metaPixelId: pixelId, metaAccessToken: accessToken, metaTestEventCode: testCode }),
+      body: JSON.stringify({
+        metaPixelId: pixelId,
+        metaTestEventCode: testCode,
+        // Só envia o token se o usuário digitou um novo (não apaga o existente)
+        ...(accessToken ? { metaAccessToken: accessToken } : {}),
+      }),
     });
     setSaving(false);
     if (res.ok) {
       toast.success("Configurações do pixel salvas!");
+      if (accessToken) setTokenSaved(true);
+      setAccessToken("");
     } else {
       toast.error("Erro ao salvar configurações");
     }
@@ -249,13 +259,23 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-1.5">
             <Label className="text-zinc-300 text-xs">Access Token (Conversions API)</Label>
-            <Input
-              value={accessToken}
-              onChange={(e) => setAccessToken(e.target.value)}
-              type="password"
-              placeholder="EAAxxxxxxx..."
-              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600"
-            />
+            <div className="relative">
+              <Input
+                value={accessToken}
+                onChange={(e) => { setAccessToken(e.target.value); if (e.target.value === "") setTokenSaved(!!workspace?.hasAccessToken); }}
+                type="password"
+                placeholder={tokenSaved ? "••••••••••••••••  (token salvo — deixe em branco para manter)" : "EAAxxxxxxx..."}
+                className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 pr-24"
+              />
+              {tokenSaved && !accessToken && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-emerald-400 font-medium flex items-center gap-1">
+                  <Save className="w-3 h-3" /> Salvo
+                </span>
+              )}
+            </div>
+            {tokenSaved && !accessToken && (
+              <p className="text-xs text-zinc-600">Token atual mantido. Digite um novo para substituir.</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-zinc-300 text-xs">Test Event Code (opcional)</Label>

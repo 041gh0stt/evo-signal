@@ -9,6 +9,6 @@ export async function GET() {
   const workspace = await getActiveWorkspace();
   if (!workspace) return NextResponse.json({ error: "No workspace" }, { status: 404 });
 
-  const { metaAccessToken: _, ...safe } = workspace;
-  return NextResponse.json(safe);
+  const { metaAccessToken, ...safe } = workspace;
+  return NextResponse.json({ ...safe, hasAccessToken: !!metaAccessToken });
 }
