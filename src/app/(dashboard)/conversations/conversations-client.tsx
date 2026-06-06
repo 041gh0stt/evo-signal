@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   MessageSquare, Search, X, Zap, ChevronDown,
-  Clock, Star, Eye, GitBranch, Info,
+  Clock, Star, Eye, GitBranch, Info, RefreshCw,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -52,7 +52,16 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [changingStage, setChangingStage] = useState(false);
   const [stageMenuFor, setStageMenuFor] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(true); // mostra banner por 8s ao carregar
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+
+  // Esconde banner de sync após 8s
+  useEffect(() => {
+    const t = setTimeout(() => setSyncing(false), 8000);
+    return () => clearTimeout(t);
+  }, []);
 
   // Load conversation detail
   useEffect(() => {
@@ -62,6 +71,41 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
       .then((r) => r.json())
       .then((d) => { setDetail(d); setLoadingDetail(false); });
   }, [selectedId]);
+
+  // SSE — escuta mensagens novas em tempo real
+  useEffect(() => {
+    const es = new EventSource("/api/conversations/stream");
+
+    es.onmessage = (e) => {
+      if (!e.data || e.data.startsWith(":")) return;
+      try {
+        const event = JSON.parse(e.data);
+        if (event.type === "new_message") {
+          // Atualiza lista de conversas
+          fetch("/api/conversations")
+            .then((r) => r.json())
+            .then((data) => setLocalConvs(Array.isArray(data) ? data : []));
+
+          // Se a conversa aberta recebeu mensagem, recarrega o detalhe
+          if (selectedIdRef.current === event.conversationId) {
+            fetch(`/api/conversations/${event.conversationId}`)
+              .then((r) => r.json())
+              .then((d) => setDetail(d));
+          } else {
+            // Notifica que chegou mensagem em outra conversa
+            const name = event.name ?? event.phone;
+            toast(`Nova mensagem de ${name}`, { duration: 4000 });
+          }
+        }
+      } catch { /* ignora */ }
+    };
+
+    es.onerror = () => {
+      // EventSource tenta reconectar automaticamente
+    };
+
+    return () => es.close();
+  }, []);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -110,6 +154,17 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
               Conversas
             </h1>
           </div>
+
+          {/* Banner de sincronização */}
+          {syncing && (
+            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+              <span>Sincronizando conversas do WhatsApp... As mensagens aparecerão em instantes.</span>
+              <button onClick={() => setSyncing(false)} className="ml-auto text-zinc-500 hover:text-zinc-300">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Stats bar */}
           <div className="flex items-center gap-6 text-sm">
