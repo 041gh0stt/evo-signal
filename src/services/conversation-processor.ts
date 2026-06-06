@@ -70,14 +70,17 @@ export async function processMessage(msg: InboundMessage) {
     if (code !== "P2002") console.error(`[processMessage] message.create error:`, e);
   }
 
-  const contentLower = msg.content.toLowerCase();
+  // Normaliza texto: minúsculo + sem acentos para comparação flexível
+  const normalize = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const contentNorm = normalize(msg.content);
 
   // ── 1. Check funnel stage keywords ─────────────────────────────────
   for (const stage of workspace.funnelStages) {
     if (!stage.triggerKeyword) continue;
 
-    const keywords = stage.triggerKeyword.split(/[\n,]+/).map((k) => k.trim().toLowerCase()).filter(Boolean);
-    const matches = keywords.some((kw) => contentLower.includes(kw));
+    const keywords = stage.triggerKeyword.split(/[\n,]+/).map((k) => normalize(k.trim())).filter(Boolean);
+    const matches = keywords.some((kw) => contentNorm.includes(kw));
 
     if (!matches) continue;
     if (conversation.funnelStageId === stage.id) continue; // já nessa etapa
@@ -130,7 +133,7 @@ export async function processMessage(msg: InboundMessage) {
     let shouldFire = false;
 
     if (config.triggerType === "keyword" && config.triggerValue) {
-      shouldFire = contentLower.includes(config.triggerValue.toLowerCase());
+      shouldFire = contentNorm.includes(normalize(config.triggerValue));
     } else if (config.triggerType === "first_message") {
       const msgCount = await prisma.message.count({ where: { conversationId: conversation.id } });
       shouldFire = msgCount === 1;
