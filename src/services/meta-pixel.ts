@@ -51,8 +51,16 @@ export async function fireConversionEvent({
 
   const url = `https://graph.facebook.com/v19.0/${pixelId}/events?access_token=${accessToken}`;
 
-  const { data } = await axios.post(url, payload);
-  return data;
+  try {
+    const { data } = await axios.post(url, payload);
+    return data;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response) {
+      const detail = JSON.stringify(err.response.data);
+      throw new Error(`Meta API ${err.response.status}: ${detail}`);
+    }
+    throw err;
+  }
 }
 
 export const META_STANDARD_EVENTS = [
