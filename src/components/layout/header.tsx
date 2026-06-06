@@ -35,7 +35,7 @@ export function Header({ activeWorkspace, allWorkspaces }: HeaderProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ workspaceId }),
     });
-    startTransition(() => router.refresh());
+    window.location.reload();
   }
 
   async function handleCreate() {
