@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-    include: { workspace: true },
+  // Pega o primeiro workspace que tem instanceId (debug temporário)
+  const ws = await prisma.workspace.findFirst({
+    where: { whatsappInstanceId: { not: null } },
+    orderBy: { createdAt: "desc" },
   });
 
-  const ws = member?.workspace;
   const instanceName = ws?.whatsappInstanceId;
   const apiUrl = process.env.EVOLUTION_API_URL;
   const apiKey = process.env.EVOLUTION_API_KEY;
