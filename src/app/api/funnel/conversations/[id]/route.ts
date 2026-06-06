@@ -36,6 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           eventId: pixelFire.eventId,
           eventTime: Math.floor(Date.now() / 1000),
           phone: conversation.phone,
+          name: conversation.name,
           pixelId: conversation.workspace.metaPixelId,
           accessToken: conversation.workspace.metaAccessToken,
           testEventCode: conversation.workspace.metaTestEventCode ?? undefined,

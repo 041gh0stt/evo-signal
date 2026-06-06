@@ -6,10 +6,15 @@ interface ConversionEvent {
   eventId: string;
   eventTime: number;
   phone: string;
+  name?: string | null;
   pixelId: string;
   accessToken: string;
   testEventCode?: string;
   customData?: Record<string, unknown>;
+}
+
+function hash(value: string): string {
+  return crypto.createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
 }
 
 function hashPhone(phone: string): string {
@@ -22,11 +27,25 @@ export async function fireConversionEvent({
   eventId,
   eventTime,
   phone,
+  name,
   pixelId,
   accessToken,
   testEventCode,
   customData = {},
 }: ConversionEvent) {
+  // user_data: phone + nome (primeiro e último) hasheados para melhorar match rate
+  const userData: Record<string, unknown> = {
+    ph: [hashPhone(phone)],
+  };
+
+  if (name?.trim()) {
+    const parts = name.trim().split(/\s+/);
+    userData.fn = [hash(parts[0])]; // first name
+    if (parts.length > 1) {
+      userData.ln = [hash(parts[parts.length - 1])]; // last name
+    }
+  }
+
   const payload: Record<string, unknown> = {
     data: [
       {
@@ -34,9 +53,7 @@ export async function fireConversionEvent({
         event_time: eventTime,
         event_id: eventId,
         action_source: "other",
-        user_data: {
-          ph: [hashPhone(phone)],
-        },
+        user_data: userData,
         custom_data: {
           ...customData,
           source: "whatsapp",
