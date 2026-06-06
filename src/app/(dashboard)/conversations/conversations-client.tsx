@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   MessageSquare, Search, X, Zap, ChevronDown,
   Clock, Star, Eye, GitBranch, Info, RefreshCw,
-  SlidersHorizontal, Filter,
+  SlidersHorizontal, Filter, ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -79,6 +79,8 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
   const [changingStage, setChangingStage] = useState(false);
   const [stageMenuFor, setStageMenuFor] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(conversations.length === 0);
+  const [sortKey, setSortKey] = useState<"name" | "origin" | "funnelStage" | "firstMessageAt" | "lastMessageAt">("lastMessageAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
@@ -178,6 +180,23 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
     return true;
   });
 
+  function toggleSort(key: typeof sortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  }
+
+  const sorted = [...filtered].sort((a, b) => {
+    let va: string | number = "", vb: string | number = "";
+    if (sortKey === "name") { va = (a.name ?? a.phone).toLowerCase(); vb = (b.name ?? b.phone).toLowerCase(); }
+    else if (sortKey === "origin") { va = a.origin; vb = b.origin; }
+    else if (sortKey === "funnelStage") { va = a.funnelStage?.name ?? ""; vb = b.funnelStage?.name ?? ""; }
+    else if (sortKey === "firstMessageAt") { va = new Date(a.firstMessageAt).getTime(); vb = new Date(b.firstMessageAt).getTime(); }
+    else if (sortKey === "lastMessageAt") { va = new Date(a.lastMessageAt).getTime(); vb = new Date(b.lastMessageAt).getTime(); }
+    if (va < vb) return sortDir === "asc" ? -1 : 1;
+    if (va > vb) return sortDir === "asc" ? 1 : -1;
+    return 0;
+  });
+
   async function handleChangeStage(convId: string, stageId: string | null) {
     setChangingStage(true);
     const res = await fetch(`/api/funnel/conversations/${convId}`, {
@@ -196,6 +215,7 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
   }
 
   const initials = (conv: Conversation) => (conv.name ?? conv.phone).charAt(0).toUpperCase();
+
 
   const originLabel = originFilter === "all" ? "Todas as Origens" : (ORIGIN_CONFIG[originFilter]?.label ?? originFilter);
 
@@ -429,7 +449,10 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
             <div className="grid grid-cols-[2fr_1fr_1.5fr_1fr_1fr_80px] gap-4 px-4 py-3 border-b border-zinc-800 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
               <div className="flex items-center gap-1.5">
-                <span>Contato</span>
+                <button onClick={() => toggleSort("name")} className="flex items-center gap-1 hover:text-zinc-300 transition-colors">
+                  <span>Contato</span>
+                  <SortIcon active={sortKey === "name"} dir={sortDir} />
+                </button>
                 <div className="relative group">
                   <Info className="w-3.5 h-3.5 text-zinc-700 hover:text-zinc-400 cursor-help transition-colors" />
                   <div className="absolute left-0 top-5 z-30 hidden group-hover:block w-64 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-3.5 text-left">
@@ -465,21 +488,29 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
                   </div>
                 </div>
               </div>
-              <span>Origem</span>
-              <span>Etapa da Jornada</span>
-              <span>Primeira Msg</span>
-              <span>Última Msg</span>
+              <button onClick={() => toggleSort("origin")} className="flex items-center gap-1 hover:text-zinc-300 transition-colors">
+                <span>Origem</span><SortIcon active={sortKey === "origin"} dir={sortDir} />
+              </button>
+              <button onClick={() => toggleSort("funnelStage")} className="flex items-center gap-1 hover:text-zinc-300 transition-colors">
+                <span>Etapa da Jornada</span><SortIcon active={sortKey === "funnelStage"} dir={sortDir} />
+              </button>
+              <button onClick={() => toggleSort("firstMessageAt")} className="flex items-center gap-1 hover:text-zinc-300 transition-colors">
+                <span>Primeira Msg</span><SortIcon active={sortKey === "firstMessageAt"} dir={sortDir} />
+              </button>
+              <button onClick={() => toggleSort("lastMessageAt")} className="flex items-center gap-1 hover:text-zinc-300 transition-colors">
+                <span>Última Msg</span><SortIcon active={sortKey === "lastMessageAt"} dir={sortDir} />
+              </button>
               <span></span>
             </div>
 
-            {filtered.length === 0 ? (
+            {sorted.length === 0 ? (
               <div className="p-10 text-center text-zinc-600 text-sm">
                 {search || originFilter !== "all" || advancedActiveCount > 0
                   ? "Nenhuma conversa encontrada com esses filtros"
                   : "Nenhuma conversa ainda"}
               </div>
             ) : (
-              filtered.map((conv) => {
+              sorted.map((conv) => {
                 const origin = ORIGIN_CONFIG[conv.origin];
                 const isSelected = conv.id === selectedId;
                 const stars = Math.min(Math.floor(conv.leadScore / 20), 5);
@@ -605,10 +636,10 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
             )}
           </div>
 
-          {filtered.length > 0 && (
+          {sorted.length > 0 && (
             <p className="text-xs text-zinc-600 text-center mt-3">
-              {filtered.length} conversa{filtered.length !== 1 ? "s" : ""} exibida{filtered.length !== 1 ? "s" : ""}
-              {filtered.length !== localConvs.length && ` (de ${localConvs.length} no total)`}
+              {sorted.length} conversa{sorted.length !== 1 ? "s" : ""} exibida{sorted.length !== 1 ? "s" : ""}
+              {sorted.length !== localConvs.length && ` (de ${localConvs.length} no total)`}
             </p>
           )}
         </div>
@@ -709,4 +740,11 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
       )}
     </div>
   );
+}
+
+function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
+  if (!active) return <ArrowUpDown className="w-3 h-3 opacity-30" />;
+  return dir === "asc"
+    ? <ArrowUp className="w-3 h-3 text-emerald-400" />
+    : <ArrowDown className="w-3 h-3 text-emerald-400" />;
 }
