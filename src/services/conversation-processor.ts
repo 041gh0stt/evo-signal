@@ -13,7 +13,7 @@ interface InboundMessage {
 }
 
 export async function processMessage(msg: InboundMessage) {
-  console.log(`[processMessage] instanceName=${msg.instanceName} phone=${msg.phone} content="${msg.content.slice(0, 40)}"`);
+  console.log(`[processMessage] instanceName=${msg.instanceName} phone=${msg.phone} dir=${msg.direction} content="${msg.content.slice(0, 40)}"`);
 
   const workspace = await prisma.workspace.findFirst({
     where: { whatsappInstanceId: msg.instanceName },
@@ -32,6 +32,19 @@ export async function processMessage(msg: InboundMessage) {
     return;
   }
   console.log(`[processMessage] workspace=${workspace.id} (${workspace.name})`);
+
+  // Mensagens outbound (enviadas por você) só são salvas se já existe conversa com esse contato
+  // Não cria conversa nova para mensagens que você enviou — só inbound cria
+  if (msg.direction === "outbound") {
+    const existing = await prisma.conversation.findUnique({
+      where: { workspaceId_phone: { workspaceId: workspace.id, phone: msg.phone } },
+      select: { id: true },
+    });
+    if (!existing) {
+      console.log(`[processMessage] skipping outbound — no existing conv for phone=${msg.phone}`);
+      return;
+    }
+  }
 
   // Upsert conversation
   const conversation = await prisma.conversation.upsert({
