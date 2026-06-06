@@ -58,7 +58,8 @@ export async function processMessage(msg: InboundMessage) {
     },
     update: {
       lastMessageAt: msg.timestamp,
-      ...(msg.name && { name: msg.name }),
+      // Só atualiza o nome com mensagens inbound — outbound traz o nome do remetente (você), não do contato
+      ...(msg.direction === "inbound" && msg.name && { name: msg.name }),
     },
   });
 
