@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveWorkspace } from "@/lib/workspace";
 
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const member = await prisma.workspaceMember.findFirst({ where: { userId: session.user.id } });
-  if (!member) return NextResponse.json([]);
+  const workspace = await getActiveWorkspace();
+  if (!workspace) return NextResponse.json([]);
 
   const links = await prisma.trackableLink.findMany({
-    where: { workspaceId: member.workspaceId },
+    where: { workspaceId: workspace.id },
     orderBy: { createdAt: "desc" },
   });
 
@@ -21,8 +22,8 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const member = await prisma.workspaceMember.findFirst({ where: { userId: session.user.id } });
-  if (!member) return NextResponse.json({ error: "No workspace" }, { status: 404 });
+  const workspace = await getActiveWorkspace();
+  if (!workspace) return NextResponse.json({ error: "No workspace" }, { status: 404 });
 
   const {
     name, utmSource, utmMedium, utmCampaign, utmContent,
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const link = await prisma.trackableLink.create({
     data: {
-      workspaceId: member.workspaceId,
+      workspaceId: workspace.id,
       name: name.trim(),
       slug,
       utmSource: utmSource || null,

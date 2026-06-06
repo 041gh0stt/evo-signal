@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getActiveWorkspace } from "@/lib/workspace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,12 +11,10 @@ export async function GET(req: NextRequest) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-  });
-  if (!member) return new Response("No workspace", { status: 404 });
+  const workspace = await getActiveWorkspace();
+  if (!workspace) return new Response("No workspace", { status: 404 });
 
-  const workspaceId = member.workspaceId;
+  const workspaceId = workspace.id;
 
   const encoder = new TextEncoder();
   let closed = false;

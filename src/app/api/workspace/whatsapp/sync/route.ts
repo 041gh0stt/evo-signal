@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { findMessages } from "@/services/evolution";
+import { getActiveWorkspace } from "@/lib/workspace";
 
 // Busca chats reais da instância
 async function findChats(instanceName: string) {
@@ -25,19 +26,16 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-    include: { workspace: true },
-  });
+  const workspace = await getActiveWorkspace();
 
-  if (!member?.workspace.whatsappInstanceId) {
+  if (!workspace?.whatsappInstanceId) {
     return new Response(JSON.stringify({ error: "WhatsApp não conectado" }), { status: 400 });
   }
 
   const body = await req.json().catch(() => ({}));
   const contactLimit: number | null = body.limit ?? 50;
-  const instanceName = member.workspace.whatsappInstanceId;
-  const workspaceId = member.workspace.id;
+  const instanceName = workspace.whatsappInstanceId;
+  const workspaceId = workspace.id;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -112,11 +110,7 @@ export async function POST(req: Request) {
             if (lastMsg) {
               const lastMsgKey = lastMsg.key as Record<string, unknown> | undefined;
               const lastMsgObj = lastMsg.message as Record<string, unknown> | undefined;
-              const extText = lastMsgObj?.extendedTextMessage as Record<string, unknown> | undefined;
-              const content = (lastMsgObj?.conversation as string) || (extText?.text as string) || "[mídia]";
-              const tsRaw = lastMsg.messageTimestamp as number | undefined;
-              const timestamp = new Date(tsRaw ? (tsRaw > 1e10 ? tsRaw : tsRaw * 1000) : Date.now());
-              messages = [{ key: lastMsgKey, message: lastMsgObj, pushName: lastMsg.pushName, messageTimestamp: tsRaw }];
+              messages = [{ key: lastMsgKey, message: lastMsgObj, pushName: lastMsg.pushName, messageTimestamp: lastMsg.messageTimestamp }];
             } else {
               continue;
             }

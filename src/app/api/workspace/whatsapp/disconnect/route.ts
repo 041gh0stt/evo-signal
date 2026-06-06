@@ -2,25 +2,22 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { deleteInstance } from "@/services/evolution";
+import { getActiveWorkspace } from "@/lib/workspace";
 
 export async function POST() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-    include: { workspace: true },
-  });
+  const workspace = await getActiveWorkspace();
+  if (!workspace) return NextResponse.json({ error: "No workspace" }, { status: 404 });
 
-  if (!member) return NextResponse.json({ error: "No workspace" }, { status: 404 });
-
-  const instanceId = member.workspace.whatsappInstanceId;
+  const instanceId = workspace.whatsappInstanceId;
   if (instanceId) {
     await deleteInstance(instanceId).catch(() => {});
   }
 
   await prisma.workspace.update({
-    where: { id: member.workspace.id },
+    where: { id: workspace.id },
     data: { whatsappConnected: false, whatsappInstanceId: null, whatsappPhone: null },
   });
 

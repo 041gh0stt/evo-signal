@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { setWebhook } from "@/services/evolution";
+import { getActiveWorkspace } from "@/lib/workspace";
 
 export async function POST() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-    include: { workspace: true },
-  });
+  const workspace = await getActiveWorkspace();
 
-  if (!member?.workspace.whatsappInstanceId) {
+  if (!workspace?.whatsappInstanceId) {
     return NextResponse.json({ error: "Nenhuma instância conectada" }, { status: 400 });
   }
 
-  const instanceName = member.workspace.whatsappInstanceId;
+  const instanceName = workspace.whatsappInstanceId;
   const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/evolution`;
 
   try {

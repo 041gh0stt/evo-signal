@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createInstance, getQRCode, logoutInstance, setWebhook } from "@/services/evolution";
+import { getActiveWorkspace } from "@/lib/workspace";
 
 function toInstanceName(workspaceName: string): string {
   return workspaceName
@@ -18,14 +19,8 @@ export async function POST() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-    include: { workspace: true },
-  });
-
-  if (!member) return NextResponse.json({ error: "No workspace" }, { status: 404 });
-
-  const workspace = member.workspace;
+  const workspace = await getActiveWorkspace();
+  if (!workspace) return NextResponse.json({ error: "No workspace" }, { status: 404 });
 
   // Usa o nome do workspace para gerar o instanceName
   const instanceName = workspace.whatsappInstanceId

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getInstanceStatus, getInstanceInfo } from "@/services/evolution";
 import { findMessages } from "@/services/evolution";
+import { getActiveWorkspace } from "@/lib/workspace";
 
 async function findChats(instanceName: string) {
   const res = await fetch(
@@ -87,39 +88,36 @@ export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-    include: { workspace: true },
-  });
+  const workspace = await getActiveWorkspace();
 
-  if (!member?.workspace.whatsappInstanceId) {
+  if (!workspace?.whatsappInstanceId) {
     return NextResponse.json({ connected: false });
   }
 
   try {
-    const status = await getInstanceStatus(member.workspace.whatsappInstanceId);
+    const status = await getInstanceStatus(workspace.whatsappInstanceId);
     const connected = status?.instance?.state === "open";
 
     if (connected) {
-      let phone = member.workspace.whatsappPhone;
+      let phone = workspace.whatsappPhone;
       try {
-        const info = await getInstanceInfo(member.workspace.whatsappInstanceId);
+        const info = await getInstanceInfo(workspace.whatsappInstanceId);
         const ownerJid: string = info?.ownerJid ?? info?.instance?.ownerJid ?? "";
         if (ownerJid) phone = ownerJid.split("@")[0];
       } catch { /* fallback */ }
 
-      const wasConnected = member.workspace.whatsappConnected;
+      const wasConnected = workspace.whatsappConnected;
 
       await prisma.workspace.update({
-        where: { id: member.workspace.id },
+        where: { id: workspace.id },
         data: { whatsappConnected: true, whatsappPhone: phone },
       });
 
       // Auto-importa 20 conversas na primeira vez que detecta conexão
       // Usa after() para garantir execução completa no Vercel após a resposta
       if (!wasConnected) {
-        const instanceId = member.workspace.whatsappInstanceId;
-        const wsId = member.workspace.id;
+        const instanceId = workspace.whatsappInstanceId;
+        const wsId = workspace.id;
         after(async () => {
           await autoImport(instanceId, wsId);
         });
@@ -128,9 +126,9 @@ export async function GET() {
       return NextResponse.json({ connected: true, phone });
     }
 
-    if (member.workspace.whatsappConnected) {
+    if (workspace.whatsappConnected) {
       await prisma.workspace.update({
-        where: { id: member.workspace.id },
+        where: { id: workspace.id },
         data: { whatsappConnected: false },
       });
     }

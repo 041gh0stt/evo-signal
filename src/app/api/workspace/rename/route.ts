@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveWorkspace } from "@/lib/workspace";
 
 export async function PATCH(req: NextRequest) {
   const session = await auth();
@@ -9,13 +10,11 @@ export async function PATCH(req: NextRequest) {
   const { name } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Nome inválido" }, { status: 400 });
 
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-  });
-  if (!member) return NextResponse.json({ error: "No workspace" }, { status: 404 });
+  const workspace = await getActiveWorkspace();
+  if (!workspace) return NextResponse.json({ error: "No workspace" }, { status: 404 });
 
   const updated = await prisma.workspace.update({
-    where: { id: member.workspaceId },
+    where: { id: workspace.id },
     data: { name: name.trim() },
   });
 

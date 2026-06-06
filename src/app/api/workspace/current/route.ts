@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getActiveWorkspace } from "@/lib/workspace";
 
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-    include: { workspace: true },
-  });
+  const workspace = await getActiveWorkspace();
+  if (!workspace) return NextResponse.json({ error: "No workspace" }, { status: 404 });
 
-  if (!member) return NextResponse.json({ error: "No workspace" }, { status: 404 });
-
-  const { metaAccessToken: _, ...safe } = member.workspace;
+  const { metaAccessToken: _, ...safe } = workspace;
   return NextResponse.json(safe);
 }
