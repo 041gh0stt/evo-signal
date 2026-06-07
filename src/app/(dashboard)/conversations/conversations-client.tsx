@@ -358,11 +358,11 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
                   <select
                     value={advanced.funnelStageId}
                     onChange={(e) => setAdv({ funnelStageId: e.target.value })}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 outline-none focus:border-violet-500"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 outline-none focus:border-violet-500 [color-scheme:dark]"
                   >
-                    <option value="">Todas as etapas</option>
+                    <option value="" style={{ backgroundColor: "#27272a", color: "#e4e4e7" }}>Todas as etapas</option>
                     {funnelStages.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                      <option key={s.id} value={s.id} style={{ backgroundColor: "#27272a", color: "#e4e4e7" }}>{s.name}</option>
                     ))}
                   </select>
                 </div>
@@ -373,11 +373,11 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
                   <select
                     value={advanced.trackableLinkId}
                     onChange={(e) => setAdv({ trackableLinkId: e.target.value })}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 outline-none focus:border-violet-500"
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 outline-none focus:border-violet-500 [color-scheme:dark]"
                   >
-                    <option value="">Todos os links</option>
+                    <option value="" style={{ backgroundColor: "#27272a", color: "#e4e4e7" }}>Todos os links</option>
                     {trackableLinks.map((l) => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
+                      <option key={l.id} value={l.id} style={{ backgroundColor: "#27272a", color: "#e4e4e7" }}>{l.name}</option>
                     ))}
                   </select>
                 </div>
