@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import {
   Users, Wifi, WifiOff, MessageSquare, Zap,
   Plus, ArrowRight, Check, Search, Trash2, AlertTriangle,
