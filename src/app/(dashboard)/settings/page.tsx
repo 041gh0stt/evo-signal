@@ -318,7 +318,7 @@ export default function SettingsPage() {
       <Separator className="bg-zinc-800" />
 
       {/* Meta Ads */}
-      <Card className="bg-zinc-900/50 border-zinc-800 p-5 space-y-4">
+      <Card className="bg-zinc-900/50 border-zinc-800 p-5 space-y-4 overflow-visible">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
