@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Trash2, AlertTriangle } from "lucide-react";
+import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Trash2, AlertTriangle, Link2, Unlink, ChevronDown, Check } from "lucide-react";
 import Image from "next/image";
 
 interface WorkspaceSettings {
@@ -21,6 +21,16 @@ interface WorkspaceSettings {
   metaPixelId: string | null;
   metaTestEventCode: string | null;
   hasAccessToken: boolean;
+  metaConnected: boolean;
+  metaAdAccountId: string | null;
+}
+
+interface AdAccount {
+  id: string;
+  accountId: string;
+  name: string;
+  currency: string;
+  status: number;
 }
 
 export default function SettingsPage() {
@@ -35,7 +45,64 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [tokenSaved, setTokenSaved] = useState(false);
 
+  // Meta Ads connection
+  const [adAccounts, setAdAccounts] = useState<AdAccount[]>([]);
+  const [loadingAdAccounts, setLoadingAdAccounts] = useState(false);
+  const [adAccountOpen, setAdAccountOpen] = useState(false);
+  const [savingAdAccount, setSavingAdAccount] = useState(false);
+  const [disconnectingMeta, setDisconnectingMeta] = useState(false);
+
+  const loadAdAccounts = useCallback(async () => {
+    setLoadingAdAccounts(true);
+    try {
+      const res = await fetch("/api/workspace/meta/adaccounts");
+      const data = await res.json();
+      if (res.ok) setAdAccounts(data.accounts ?? []);
+    } catch { /* ignore */ }
+    setLoadingAdAccounts(false);
+  }, []);
+
+  async function handleSelectAdAccount(adAccountId: string) {
+    setAdAccountOpen(false);
+    setSavingAdAccount(true);
+    const res = await fetch("/api/workspace/meta/adaccount", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adAccountId }),
+    });
+    setSavingAdAccount(false);
+    if (res.ok) {
+      setWorkspace((w) => w ? { ...w, metaAdAccountId: adAccountId } : w);
+      toast.success("Conta de anúncios selecionada!");
+    } else {
+      toast.error("Erro ao salvar conta de anúncios");
+    }
+  }
+
+  async function handleDisconnectMeta() {
+    setDisconnectingMeta(true);
+    const res = await fetch("/api/workspace/meta/adaccount", { method: "DELETE" });
+    setDisconnectingMeta(false);
+    if (res.ok) {
+      setWorkspace((w) => w ? { ...w, metaConnected: false, metaAdAccountId: null } : w);
+      setAdAccounts([]);
+      toast.success("Meta Ads desconectado");
+    } else {
+      toast.error("Erro ao desconectar");
+    }
+  }
+
   useEffect(() => {
+    // Trata retorno do OAuth do Meta
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("meta_connected")) {
+      toast.success("Conta do Meta conectada!");
+      window.history.replaceState({}, "", "/settings");
+    } else if (params.get("meta_error")) {
+      toast.error("Erro ao conectar com o Meta. Tente novamente.");
+      window.history.replaceState({}, "", "/settings");
+    }
+
     fetch("/api/workspace/current")
       .then((r) => r.json())
       .then(async (data) => {
@@ -44,6 +111,8 @@ export default function SettingsPage() {
         setPixelId(data.metaPixelId ?? "");
         setTestCode(data.metaTestEventCode ?? "");
         setTokenSaved(!!data.hasAccessToken);
+
+        if (data.metaConnected) loadAdAccounts();
 
         // Se conectado mas sem número, sincroniza com Evolution API
         if (data.whatsappConnected) {
@@ -242,6 +311,106 @@ export default function SettingsPage() {
           <Button onClick={handleConnectWhatsApp} disabled={connecting} className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-900 font-semibold">
             {connecting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <QrCode className="w-4 h-4 mr-2" />}
             {connecting ? "Preparando..." : "Conectar WhatsApp"}
+          </Button>
+        )}
+      </Card>
+
+      <Separator className="bg-zinc-800" />
+
+      {/* Meta Ads */}
+      <Card className="bg-zinc-900/50 border-zinc-800 p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
+              <Link2 className="w-4 h-4 text-blue-500" />
+              Meta Ads
+            </h2>
+            <p className="text-xs text-zinc-500 mt-0.5">Conecte sua conta para filtrar resultados por campanha</p>
+          </div>
+          {workspace.metaConnected ? (
+            <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 gap-1.5">
+              <Check className="w-3 h-3" /> Conectado
+            </Badge>
+          ) : (
+            <Badge className="bg-zinc-800 text-zinc-500 border border-zinc-700 gap-1.5">
+              Não conectado
+            </Badge>
+          )}
+        </div>
+
+        {workspace.metaConnected ? (
+          <div className="space-y-3">
+            {/* Ad account selector */}
+            <div className="space-y-1.5">
+              <Label className="text-zinc-300 text-xs">Conta de anúncios</Label>
+              <div className="relative">
+                <button
+                  onClick={() => setAdAccountOpen((v) => !v)}
+                  disabled={loadingAdAccounts || savingAdAccount}
+                  className="w-full flex items-center justify-between gap-2 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-left hover:border-zinc-600 transition-colors disabled:opacity-60"
+                >
+                  <span className={adAccounts.find((a) => a.id === workspace.metaAdAccountId) ? "text-zinc-100" : "text-zinc-500"}>
+                    {loadingAdAccounts
+                      ? "Carregando contas..."
+                      : adAccounts.find((a) => a.id === workspace.metaAdAccountId)?.name
+                        ?? "Selecione uma conta de anúncios"}
+                  </span>
+                  {savingAdAccount ? (
+                    <RefreshCw className="w-4 h-4 text-zinc-500 animate-spin shrink-0" />
+                  ) : (
+                    <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform shrink-0 ${adAccountOpen ? "rotate-180" : ""}`} />
+                  )}
+                </button>
+
+                {adAccountOpen && !loadingAdAccounts && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setAdAccountOpen(false)} />
+                    <div className="absolute left-0 right-0 top-full mt-1.5 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto">
+                      {adAccounts.length === 0 ? (
+                        <div className="px-4 py-3 text-xs text-zinc-500">Nenhuma conta de anúncios encontrada</div>
+                      ) : (
+                        adAccounts.map((acc) => (
+                          <button
+                            key={acc.id}
+                            onClick={() => handleSelectAdAccount(acc.id)}
+                            className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-2 transition-colors ${
+                              acc.id === workspace.metaAdAccountId
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "text-zinc-300 hover:bg-zinc-800"
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{acc.name}</p>
+                              <p className="text-xs text-zinc-600">{acc.accountId} · {acc.currency}</p>
+                            </div>
+                            {acc.id === workspace.metaAdAccountId && <Check className="w-4 h-4 shrink-0" />}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDisconnectMeta}
+              disabled={disconnectingMeta}
+              className="border-red-800 text-red-400 hover:bg-red-900/20 gap-1.5"
+            >
+              <Unlink className="w-3.5 h-3.5" />
+              {disconnectingMeta ? "Desconectando..." : "Desconectar Meta"}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            onClick={() => { window.location.href = "/api/auth/meta"; }}
+            className="bg-blue-600 hover:bg-blue-500 text-white gap-2"
+          >
+            <Link2 className="w-4 h-4" />
+            Conectar conta do Meta
           </Button>
         )}
       </Card>

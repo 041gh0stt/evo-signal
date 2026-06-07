@@ -64,6 +64,8 @@ model Workspace {
   metaPixelId        String?
   metaAccessToken    String?            @db.Text
   metaTestEventCode  String?
+  metaUserToken      String?            @db.Text
+  metaAdAccountId    String?
   members            WorkspaceMember[]
   trackableLinks     TrackableLink[]
   conversations      Conversation[]
