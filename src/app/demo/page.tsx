@@ -89,6 +89,7 @@ export default function DemoPage() {
             workspace={mockWorkspace}
             stats={mockStats}
             recentConversations={mockConversations}
+            funnelStages={[]}
           />
         </main>
       </div>
