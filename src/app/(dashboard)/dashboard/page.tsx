@@ -11,7 +11,7 @@ export default async function DashboardPage() {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const wid = workspace.id;
 
-  const [totalConversations, trackedConversations, pixelFires, originBreakdown, recentConversations] =
+  const [totalConversations, trackedConversations, pixelFires, originBreakdown, recentConversations, funnelStages] =
     await Promise.all([
       prisma.conversation.count({ where: { workspaceId: wid, createdAt: { gte: since } } }),
       prisma.conversation.count({
@@ -28,8 +28,13 @@ export default async function DashboardPage() {
       prisma.conversation.findMany({
         where: { workspaceId: wid },
         orderBy: { lastMessageAt: "desc" },
-        take: 10,
+        take: 8,
         include: { _count: { select: { messages: true, pixelFires: true } } },
+      }),
+      prisma.funnelStage.findMany({
+        where: { workspaceId: wid },
+        orderBy: { order: "asc" },
+        include: { _count: { select: { conversations: true } } },
       }),
     ]);
 
@@ -47,6 +52,14 @@ export default async function DashboardPage() {
       workspace={workspace}
       stats={stats}
       recentConversations={recentConversations}
+      funnelStages={funnelStages.map((s) => ({
+        id: s.id,
+        name: s.name,
+        color: s.color,
+        order: s.order,
+        isSale: s.isSale,
+        count: s._count.conversations,
+      }))}
     />
   );
 }
