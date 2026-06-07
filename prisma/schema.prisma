@@ -139,6 +139,11 @@ model Conversation {
   utmSource       String?
   utmMedium       String?
   utmCampaign     String?
+  adSourceId      String?
+  adTitle         String?            @db.Text
+  adBody          String?            @db.Text
+  adSourceUrl     String?            @db.Text
+  adThumbnailUrl  String?            @db.Text
   status          String             @default("open")
   leadScore       Int                @default(0)
   firstMessageAt  DateTime

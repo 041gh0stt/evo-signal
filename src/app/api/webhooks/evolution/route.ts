@@ -15,6 +15,45 @@ function extractPhone(remoteJid: string): string {
   return remoteJid.replace("@c.us", "");
 }
 
+interface AdReferral {
+  sourceId: string | null;
+  title: string | null;
+  body: string | null;
+  sourceUrl: string | null;
+  thumbnailUrl: string | null;
+}
+
+// Extrai dados do anúncio "Clique para o WhatsApp" (Meta Ads) de uma mensagem.
+// O Baileys/Evolution API expõe isso em contextInfo.externalAdReplyInfo,
+// presente em praticamente qualquer tipo de mensagem (texto, imagem, etc).
+function extractAdReferral(message: Record<string, unknown> | null | undefined): AdReferral | null {
+  if (!message) return null;
+
+  const candidates = [
+    message.extendedTextMessage,
+    message.imageMessage,
+    message.videoMessage,
+    message.conversation ? message : null,
+    message,
+  ];
+
+  for (const candidate of candidates) {
+    const ctx = (candidate as Record<string, unknown> | null | undefined)?.contextInfo as Record<string, unknown> | undefined;
+    const adReply = ctx?.externalAdReplyInfo as Record<string, unknown> | undefined;
+    if (adReply) {
+      return {
+        sourceId: (adReply.sourceId as string) ?? null,
+        title: (adReply.title as string) ?? null,
+        body: (adReply.body as string) ?? null,
+        sourceUrl: (adReply.sourceUrl as string) ?? null,
+        thumbnailUrl: (adReply.thumbnailUrl as string) ?? null,
+      };
+    }
+  }
+
+  return null;
+}
+
 function extractContent(message: Record<string, unknown> | null | undefined): string {
   if (!message) return "[mídia]";
   return (
@@ -81,6 +120,7 @@ export async function POST(req: NextRequest) {
         const phone = extractPhone(remoteJid);
         const isFromMe = msg.key.fromMe === true;
         const content = extractContent(msg.message);
+        const adReferral = extractAdReferral(msg.message);
         const pushName = msg.pushName ?? null;
         const tsRaw = msg.messageTimestamp;
         const timestamp = new Date(
@@ -100,6 +140,7 @@ export async function POST(req: NextRequest) {
           timestamp,
           direction: isFromMe ? "outbound" : "inbound",
           instanceName,
+          adReferral,
         });
       }
     }

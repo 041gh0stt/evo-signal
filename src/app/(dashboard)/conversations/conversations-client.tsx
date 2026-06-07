@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import {
   MessageSquare, Search, X, Zap, ChevronDown,
   Clock, Star, Eye, GitBranch, Info, RefreshCw,
-  SlidersHorizontal, Filter, ArrowUpDown, ArrowUp, ArrowDown,
+  SlidersHorizontal, Filter, ArrowUpDown, ArrowUp, ArrowDown, Link2,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -30,6 +30,8 @@ interface Conversation {
   funnelStage: FunnelStage | null;
   trackableLink: TrackableLink | null;
   utmSource: string | null; utmMedium: string | null; utmCampaign: string | null;
+  adSourceId: string | null; adTitle: string | null; adBody: string | null;
+  adSourceUrl: string | null; adThumbnailUrl: string | null;
   firstMessageAt: Date; lastMessageAt: Date;
   _count: { messages: number; pixelFires: number };
 }
@@ -662,6 +664,29 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
               <X className="w-4 h-4" />
             </button>
           </div>
+
+          {detail?.adSourceId && (
+            <div className="px-4 py-3 border-b border-zinc-800 shrink-0 bg-blue-500/5">
+              <p className="text-xs font-semibold text-blue-400 flex items-center gap-1.5 mb-2">
+                <Link2 className="w-3.5 h-3.5" /> Veio de um anúncio (Meta Ads)
+              </p>
+              <div className="flex gap-2.5">
+                {detail.adThumbnailUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={detail.adThumbnailUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0 bg-zinc-800" />
+                )}
+                <div className="min-w-0">
+                  {detail.adTitle && <p className="text-sm font-medium text-zinc-200 truncate">{detail.adTitle}</p>}
+                  {detail.adBody && <p className="text-xs text-zinc-500 line-clamp-2">{detail.adBody}</p>}
+                  {detail.adSourceUrl && (
+                    <a href={detail.adSourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
+                      Ver anúncio
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             {loadingDetail ? (

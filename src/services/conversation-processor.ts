@@ -1,6 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { fireConversionEvent } from "./meta-pixel";
 
+interface AdReferral {
+  sourceId: string | null;
+  title: string | null;
+  body: string | null;
+  sourceUrl: string | null;
+  thumbnailUrl: string | null;
+}
+
 interface InboundMessage {
   workspaceId: string;
   phone: string;
@@ -10,6 +18,7 @@ interface InboundMessage {
   timestamp: Date;
   direction: "inbound" | "outbound";
   instanceName: string;
+  adReferral?: AdReferral | null;
 }
 
 export async function processMessage(msg: InboundMessage) {
@@ -44,6 +53,16 @@ export async function processMessage(msg: InboundMessage) {
       name: msg.direction === "inbound" ? (msg.name ?? null) : null,
       firstMessageAt: msg.timestamp,
       lastMessageAt: msg.timestamp,
+      // Se a primeira mensagem veio de um anúncio "Clique para o WhatsApp" (Meta Ads),
+      // marca a origem e guarda os dados do criativo para exibição posterior
+      ...(msg.adReferral?.sourceId && {
+        origin: "meta_ads",
+        adSourceId: msg.adReferral.sourceId,
+        adTitle: msg.adReferral.title,
+        adBody: msg.adReferral.body,
+        adSourceUrl: msg.adReferral.sourceUrl,
+        adThumbnailUrl: msg.adReferral.thumbnailUrl,
+      }),
     },
     update: {
       lastMessageAt: msg.timestamp,
