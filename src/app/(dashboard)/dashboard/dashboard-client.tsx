@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { DateRangePicker, DateRange } from "@/components/ui/date-range-picker";
 
 const ORIGIN_CONFIG: Record<string, { label: string; color: string }> = {
   meta_ads:   { label: "Meta Ads",      color: "#3b82f6" },
@@ -37,6 +38,7 @@ const RANGE_OPTIONS = [
   { key: "90d",        label: "Últimos 90 dias" },
   { key: "month",      label: "Este mês" },
   { key: "last_month", label: "Mês passado" },
+  { key: "custom",     label: "Personalizado…" },
 ];
 
 interface Props {
@@ -56,6 +58,8 @@ interface Props {
   };
   rangeKey: string;
   rangeLabel: string;
+  customFrom?: string;
+  customTo?: string;
   recentConversations: {
     id: string;
     phone: string;
@@ -68,13 +72,28 @@ interface Props {
   funnelStages: FunnelStage[];
 }
 
-export function DashboardClient({ workspace, stats, recentConversations, funnelStages, rangeKey, rangeLabel }: Props) {
+export function DashboardClient({ workspace, stats, recentConversations, funnelStages, rangeKey, rangeLabel, customFrom = "", customTo = "" }: Props) {
   const router = useRouter();
   const [rangeOpen, setRangeOpen] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customRange, setCustomRange] = useState<DateRange>({ from: customFrom, to: customTo });
 
   function selectRange(key: string) {
+    if (key === "custom") {
+      setRangeOpen(false);
+      setShowCustom(true);
+      return;
+    }
     setRangeOpen(false);
     router.push(`/dashboard?range=${key}`);
+  }
+
+  function applyCustomRange(range: DateRange) {
+    setCustomRange(range);
+    setShowCustom(false);
+    if (range.from) {
+      router.push(`/dashboard?range=custom&from=${range.from}${range.to ? `&to=${range.to}` : ""}`);
+    }
   }
 
   const chartData = stats.originBreakdown.map((o) => ({
@@ -95,12 +114,13 @@ export function DashboardClient({ workspace, stats, recentConversations, funnelS
           {/* Date range picker */}
           <div className="relative mt-1">
             <button
-              onClick={() => setRangeOpen((v) => !v)}
+              onClick={() => { setRangeOpen((v) => !v); setShowCustom(false); }}
               className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
             >
               <span>{rangeLabel}</span>
               <ChevronDown className={`w-3 h-3 transition-transform ${rangeOpen ? "rotate-180" : ""}`} />
             </button>
+
             {rangeOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setRangeOpen(false)} />
@@ -120,6 +140,18 @@ export function DashboardClient({ workspace, stats, recentConversations, funnelS
                   ))}
                 </div>
               </>
+            )}
+
+            {/* Custom date range picker — opens inline below trigger */}
+            {showCustom && (
+              <div className="absolute left-0 top-6 z-20">
+                <DateRangePicker
+                  value={customRange}
+                  onChange={applyCustomRange}
+                  placeholder="Selecionar período"
+                  defaultOpen
+                />
+              </div>
             )}
           </div>
         </div>

@@ -22,19 +22,36 @@ const RANGES: Record<string, () => { since: Date; label: string }> = {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
 }) {
   const workspace = await getActiveWorkspace();
   if (!workspace) redirect("/onboarding");
 
-  const { range: rawRange } = await searchParams;
-  const rangeKey = rawRange && RANGES[rawRange] ? rawRange : "7d";
-  const { since, label: rangeLabel } = RANGES[rangeKey]();
+  const { range: rawRange, from: rawFrom, to: rawTo } = await searchParams;
 
-  // For "last_month" we also need an "until" date
-  const until = rangeKey === "last_month"
-    ? new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    : undefined;
+  let since: Date;
+  let until: Date | undefined;
+  let rangeKey: string;
+  let rangeLabel: string;
+
+  if (rawRange === "custom" && rawFrom) {
+    since = new Date(rawFrom + "T00:00:00");
+    until = rawTo ? new Date(rawTo + "T23:59:59") : undefined;
+    rangeKey = "custom";
+    const fmt = (s: string) => s.split("-").reverse().join("/");
+    rangeLabel = rawTo && rawTo !== rawFrom
+      ? `${fmt(rawFrom)} → ${fmt(rawTo)}`
+      : fmt(rawFrom);
+  } else {
+    const key = rawRange && RANGES[rawRange] ? rawRange : "7d";
+    rangeKey = key;
+    const r = RANGES[key]();
+    since = r.since;
+    rangeLabel = r.label;
+    until = key === "last_month"
+      ? new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+      : undefined;
+  }
 
   const wid = workspace.id;
   const dateFilter = { gte: since, ...(until ? { lt: until } : {}) };
@@ -82,6 +99,8 @@ export default async function DashboardPage({
       recentConversations={recentConversations}
       rangeKey={rangeKey}
       rangeLabel={rangeLabel}
+      customFrom={rawRange === "custom" ? (rawFrom ?? "") : ""}
+      customTo={rawRange === "custom" ? (rawTo ?? "") : ""}
       funnelStages={funnelStages.map((s) => ({
         id: s.id,
         name: s.name,

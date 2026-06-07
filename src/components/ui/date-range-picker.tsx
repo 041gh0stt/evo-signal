@@ -13,6 +13,7 @@ interface Props {
   onChange: (range: DateRange) => void;
   placeholder?: string;
   label?: string;
+  defaultOpen?: boolean;
 }
 
 const PRESETS = [
@@ -50,8 +51,8 @@ function isBetween(d: string, from: string, to: string) {
   return from && to && d > from && d < to;
 }
 
-export function DateRangePicker({ value, onChange, placeholder = "Selecionar período", label }: Props) {
-  const [open, setOpen] = useState(false);
+export function DateRangePicker({ value, onChange, placeholder = "Selecionar período", label, defaultOpen = false }: Props) {
+  const [open, setOpen] = useState(defaultOpen);
   const [draft, setDraft] = useState<DateRange>(value);
   const [selecting, setSelecting] = useState<"from" | "to" | null>(null);
   const [hovering, setHovering] = useState("");
