@@ -90,6 +90,8 @@ export default function DemoPage() {
             stats={mockStats}
             recentConversations={mockConversations}
             funnelStages={[]}
+            rangeKey="7d"
+            rangeLabel="Últimos 7 dias"
           />
         </main>
       </div>
