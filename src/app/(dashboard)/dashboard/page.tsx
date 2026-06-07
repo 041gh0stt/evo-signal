@@ -4,25 +4,53 @@ import { redirect } from "next/navigation";
 import { getActiveWorkspace } from "@/lib/workspace";
 import { DashboardClient } from "./dashboard-client";
 
-export default async function DashboardPage() {
+const RANGES: Record<string, () => { since: Date; label: string }> = {
+  "1d":  () => ({ since: new Date(Date.now() - 1  * 24 * 60 * 60 * 1000), label: "Hoje" }),
+  "7d":  () => ({ since: new Date(Date.now() - 7  * 24 * 60 * 60 * 1000), label: "Últimos 7 dias" }),
+  "30d": () => ({ since: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), label: "Últimos 30 dias" }),
+  "90d": () => ({ since: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), label: "Últimos 90 dias" }),
+  "month": () => {
+    const n = new Date();
+    return { since: new Date(n.getFullYear(), n.getMonth(), 1), label: "Este mês" };
+  },
+  "last_month": () => {
+    const n = new Date();
+    return { since: new Date(n.getFullYear(), n.getMonth() - 1, 1), label: "Mês passado" };
+  },
+};
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>;
+}) {
   const workspace = await getActiveWorkspace();
   if (!workspace) redirect("/onboarding");
 
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const { range: rawRange } = await searchParams;
+  const rangeKey = rawRange && RANGES[rawRange] ? rawRange : "7d";
+  const { since, label: rangeLabel } = RANGES[rangeKey]();
+
+  // For "last_month" we also need an "until" date
+  const until = rangeKey === "last_month"
+    ? new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+    : undefined;
+
   const wid = workspace.id;
+  const dateFilter = { gte: since, ...(until ? { lt: until } : {}) };
 
   const [totalConversations, trackedConversations, pixelFires, originBreakdown, recentConversations, funnelStages] =
     await Promise.all([
-      prisma.conversation.count({ where: { workspaceId: wid, createdAt: { gte: since } } }),
+      prisma.conversation.count({ where: { workspaceId: wid, createdAt: dateFilter } }),
       prisma.conversation.count({
-        where: { workspaceId: wid, createdAt: { gte: since }, NOT: { origin: "untracked" } },
+        where: { workspaceId: wid, createdAt: dateFilter, NOT: { origin: "untracked" } },
       }),
       prisma.pixelFire.count({
-        where: { conversation: { workspaceId: wid }, firedAt: { gte: since }, success: true },
+        where: { conversation: { workspaceId: wid }, firedAt: dateFilter, success: true },
       }),
       prisma.conversation.groupBy({
         by: ["origin"],
-        where: { workspaceId: wid, createdAt: { gte: since } },
+        where: { workspaceId: wid, createdAt: dateFilter },
         _count: true,
       }),
       prisma.conversation.findMany({
@@ -52,6 +80,8 @@ export default async function DashboardPage() {
       workspace={workspace}
       stats={stats}
       recentConversations={recentConversations}
+      rangeKey={rangeKey}
+      rangeLabel={rangeLabel}
       funnelStages={funnelStages.map((s) => ({
         id: s.id,
         name: s.name,

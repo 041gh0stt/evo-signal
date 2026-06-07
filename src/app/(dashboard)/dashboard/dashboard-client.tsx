@@ -3,7 +3,7 @@
 import { Card } from "@/components/ui/card";
 import {
   MessageSquare, Zap, TrendingUp, Link2,
-  Wifi, WifiOff, ArrowUpRight, Clock,
+  Wifi, WifiOff, ArrowUpRight, Clock, ChevronDown,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -11,6 +11,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
 } from "recharts";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 const ORIGIN_CONFIG: Record<string, { label: string; color: string }> = {
   meta_ads:   { label: "Meta Ads",      color: "#3b82f6" },
@@ -28,6 +30,15 @@ interface FunnelStage {
   count: number;
 }
 
+const RANGE_OPTIONS = [
+  { key: "1d",         label: "Hoje" },
+  { key: "7d",         label: "Últimos 7 dias" },
+  { key: "30d",        label: "Últimos 30 dias" },
+  { key: "90d",        label: "Últimos 90 dias" },
+  { key: "month",      label: "Este mês" },
+  { key: "last_month", label: "Mês passado" },
+];
+
 interface Props {
   workspace: {
     id: string;
@@ -43,6 +54,8 @@ interface Props {
     pixelFires: number;
     originBreakdown: { origin: string; _count: number }[];
   };
+  rangeKey: string;
+  rangeLabel: string;
   recentConversations: {
     id: string;
     phone: string;
@@ -55,7 +68,15 @@ interface Props {
   funnelStages: FunnelStage[];
 }
 
-export function DashboardClient({ workspace, stats, recentConversations, funnelStages }: Props) {
+export function DashboardClient({ workspace, stats, recentConversations, funnelStages, rangeKey, rangeLabel }: Props) {
+  const router = useRouter();
+  const [rangeOpen, setRangeOpen] = useState(false);
+
+  function selectRange(key: string) {
+    setRangeOpen(false);
+    router.push(`/dashboard?range=${key}`);
+  }
+
   const chartData = stats.originBreakdown.map((o) => ({
     name: ORIGIN_CONFIG[o.origin]?.label ?? o.origin,
     value: o._count,
@@ -71,7 +92,36 @@ export function DashboardClient({ workspace, stats, recentConversations, funnelS
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-zinc-100">{workspace.name}</h1>
-          <p className="text-xs text-zinc-500 mt-0.5">Últimos 7 dias</p>
+          {/* Date range picker */}
+          <div className="relative mt-1">
+            <button
+              onClick={() => setRangeOpen((v) => !v)}
+              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              <span>{rangeLabel}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${rangeOpen ? "rotate-180" : ""}`} />
+            </button>
+            {rangeOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setRangeOpen(false)} />
+                <div className="absolute left-0 top-6 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-xl overflow-hidden min-w-[160px]">
+                  {RANGE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.key}
+                      onClick={() => selectRange(opt.key)}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${
+                        opt.key === rangeKey
+                          ? "bg-emerald-500/15 text-emerald-400 font-medium"
+                          : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
         {workspace.whatsappConnected ? (
           <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1.5">
