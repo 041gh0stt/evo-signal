@@ -38,12 +38,23 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch("/api/workspace/current")
       .then((r) => r.json())
-      .then((data) => {
+      .then(async (data) => {
         setWorkspace(data);
         setWorkspaceName(data.name ?? "");
         setPixelId(data.metaPixelId ?? "");
         setTestCode(data.metaTestEventCode ?? "");
         setTokenSaved(!!data.hasAccessToken);
+
+        // Se conectado mas sem número, sincroniza com Evolution API
+        if (data.whatsappConnected) {
+          try {
+            const statusRes = await fetch("/api/workspace/whatsapp/status");
+            const statusData = await statusRes.json();
+            if (statusData.connected && statusData.phone) {
+              setWorkspace((w) => w ? { ...w, whatsappPhone: statusData.phone } : w);
+            }
+          } catch { /* silencia erro de sync */ }
+        }
       });
   }, []);
 

@@ -6,11 +6,11 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
 import {
   Users, Wifi, WifiOff, MessageSquare, Zap,
   Plus, ArrowRight, Check, Search, Trash2, AlertTriangle,
 } from "lucide-react";
+import { CreateWorkspaceModal } from "@/components/onboarding/CreateWorkspaceModal";
 
 interface Workspace {
   id: string;
@@ -31,8 +31,7 @@ export function ClientesClient({ workspaces, activeWorkspaceId }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -52,21 +51,9 @@ export function ClientesClient({ workspaces, activeWorkspaceId }: Props) {
     });
   }
 
-  async function handleCreate() {
-    if (!newName.trim()) return;
-    const res = await fetch("/api/workspace/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName }),
-    });
-    if (res.ok) {
-      toast.success(`Conta "${newName}" criada!`);
-      setNewName("");
-      setCreating(false);
-      startTransition(() => router.refresh());
-    } else {
-      toast.error("Erro ao criar conta");
-    }
+  function handleOnboardingCreated() {
+    setShowOnboarding(false);
+    window.location.reload();
   }
 
   async function handleDelete(workspaceId: string) {
@@ -91,6 +78,13 @@ export function ClientesClient({ workspaces, activeWorkspaceId }: Props) {
   const disconnected = workspaces.length - connected;
 
   return (
+    <>
+    {showOnboarding && (
+      <CreateWorkspaceModal
+        onClose={() => setShowOnboarding(false)}
+        onCreated={handleOnboardingCreated}
+      />
+    )}
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -104,7 +98,7 @@ export function ClientesClient({ workspaces, activeWorkspaceId }: Props) {
           </p>
         </div>
         <Button
-          onClick={() => setCreating(true)}
+          onClick={() => setShowOnboarding(true)}
           className="bg-emerald-500 hover:bg-emerald-400 text-zinc-900 font-semibold gap-2"
         >
           <Plus className="w-4 h-4" /> Adicionar conta
@@ -130,32 +124,6 @@ export function ClientesClient({ workspaces, activeWorkspaceId }: Props) {
           </div>
         </Card>
       </div>
-
-      {/* Add account inline form */}
-      {creating && (
-        <Card className="bg-zinc-900/50 border-emerald-500/30 border p-4">
-          <p className="text-sm font-semibold text-zinc-300 mb-3">Nova conta de cliente</p>
-          <div className="flex gap-3">
-            <Input
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setCreating(false); }}
-              placeholder="Nome do cliente (ex: Clínica ABC)"
-              className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600"
-            />
-            <Button onClick={handleCreate} disabled={!newName.trim()} className="bg-emerald-500 hover:bg-emerald-400 text-zinc-900 font-semibold shrink-0">
-              Criar
-            </Button>
-            <Button variant="outline" onClick={() => setCreating(false)} className="border-zinc-700 text-zinc-400 shrink-0">
-              Cancelar
-            </Button>
-          </div>
-          <p className="text-xs text-zinc-600 mt-2">
-            Após criar, você poderá configurar o WhatsApp e o pixel de cada conta individualmente.
-          </p>
-        </Card>
-      )}
 
       {/* Search */}
       <div className="relative">
@@ -303,5 +271,6 @@ export function ClientesClient({ workspaces, activeWorkspaceId }: Props) {
         )}
       </Card>
     </div>
+    </>
   );
 }
