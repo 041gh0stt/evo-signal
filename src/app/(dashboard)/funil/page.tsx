@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
   GitBranch, Plus, Trash2, GripVertical,
-  Zap, Pencil, Check, X, ArrowUpDown, Key,
+  Zap, Pencil, Check, X, ArrowUpDown, Key, Info,
 } from "lucide-react";
 
 const META_EVENTS = [
@@ -309,7 +309,8 @@ function StageForm({
   const set = (updates: Partial<StageFormData>) => setF((prev) => ({ ...prev, ...updates }));
 
   function handleFirstContactToggle(val: boolean) {
-    set({ isFirstContact: val, event: val ? "Contact" : f.event });
+    // Etapas de Primeiro Contato são automáticas — não usam termo-chave
+    set({ isFirstContact: val, event: val ? "Contact" : f.event, keyword: val ? "" : f.keyword });
   }
 
   function handleSaleToggle(val: boolean) {
@@ -398,23 +399,35 @@ function StageForm({
 
       <Separator className="bg-zinc-800" />
 
-      {/* Keyword */}
-      <div className="space-y-1.5">
-        <Label className="text-xs text-zinc-400 flex items-center gap-1.5">
-          <Key className="w-3.5 h-3.5 text-amber-400" />
-          Termo-chave para alterar esta etapa da jornada
-        </Label>
-        <textarea
-          value={f.keyword}
-          onChange={(e) => set({ keyword: e.target.value })}
-          placeholder="Digite os termos separados por vírgula ou em linhas diferentes.&#10;Ex: agendei, confirmado, quero agendar..."
-          rows={3}
-          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-emerald-500 resize-none transition-colors"
-        />
-        <p className="text-xs text-zinc-600">
-          Sempre que o sistema identificar esse termo numa mensagem, a conversa será movida para esta etapa e o evento de pixel será disparado.
-        </p>
-      </div>
+      {/* Keyword — não se aplica à etapa de Primeiro Contato (é automática) */}
+      {f.isFirstContact ? (
+        <div className="flex items-start gap-2 bg-blue-500/5 border border-blue-500/15 rounded-lg px-3 py-2.5">
+          <Info className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Etapas de <span className="text-blue-400 font-medium">Primeiro Contato</span> não usam termo-chave —
+            o sistema move a conversa pra cá <span className="text-zinc-300">automaticamente</span> assim que
+            chega a primeira mensagem de um número que ainda não estava cadastrado, e já dispara o evento{" "}
+            <span className="text-blue-400 font-mono">Contact</span> para o Meta Pixel.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <Label className="text-xs text-zinc-400 flex items-center gap-1.5">
+            <Key className="w-3.5 h-3.5 text-amber-400" />
+            Termo-chave para alterar esta etapa da jornada
+          </Label>
+          <textarea
+            value={f.keyword}
+            onChange={(e) => set({ keyword: e.target.value })}
+            placeholder="Digite os termos separados por vírgula ou em linhas diferentes.&#10;Ex: agendei, confirmado, quero agendar..."
+            rows={3}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-emerald-500 resize-none transition-colors"
+          />
+          <p className="text-xs text-zinc-600">
+            Sempre que o sistema identificar esse termo numa mensagem, a conversa será movida para esta etapa e o evento de pixel será disparado.
+          </p>
+        </div>
+      )}
 
       <div className="flex gap-2 pt-1">
         <Button onClick={() => onSave(f)} disabled={!f.name.trim()}

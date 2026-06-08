@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/workspace";
+import { seedDefaultFunnelStages } from "@/services/funnel-defaults";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -22,6 +23,8 @@ export async function POST(req: NextRequest) {
       members: { create: { userId: session.user.id, role: "owner" } },
     },
   });
+
+  await seedDefaultFunnelStages(workspace.id);
 
   const res = NextResponse.json(workspace, { status: 201 });
   // Automatically switch to new workspace

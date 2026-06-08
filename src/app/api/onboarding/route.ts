@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { seedDefaultFunnelStages } from "@/services/funnel-defaults";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -23,6 +24,8 @@ export async function POST(req: NextRequest) {
       },
     },
   });
+
+  await seedDefaultFunnelStages(workspace.id);
 
   return NextResponse.json(workspace, { status: 201 });
 }

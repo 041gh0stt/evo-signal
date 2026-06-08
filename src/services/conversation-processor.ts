@@ -36,6 +36,60 @@ function deriveOriginFromUtm(utmSource?: string | null, utmMedium?: string | nul
   return "untracked";
 }
 
+interface StageLike {
+  id: string;
+  name: string;
+  pixelEventName: string | null;
+  purchaseValue: number | null;
+}
+
+// Move a conversa para a etapa informada e dispara o evento de pixel vinculado (se houver)
+async function moveToFunnelStage(params: {
+  conversationId: string;
+  conversationName: string | null;
+  stage: StageLike;
+  workspace: { metaPixelId: string | null; metaAccessToken: string | null; metaTestEventCode: string | null };
+  phone: string;
+  timestamp: Date;
+}) {
+  const { conversationId, conversationName, stage, workspace, phone, timestamp } = params;
+
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { funnelStageId: stage.id },
+  });
+
+  if (stage.pixelEventName && workspace.metaPixelId && workspace.metaAccessToken) {
+    const pixelFire = await prisma.pixelFire.create({
+      data: { conversationId, eventName: stage.pixelEventName, success: false },
+    });
+    try {
+      await fireConversionEvent({
+        eventName: stage.pixelEventName,
+        eventId: pixelFire.eventId,
+        eventTime: Math.floor(timestamp.getTime() / 1000),
+        phone,
+        name: conversationName,
+        pixelId: workspace.metaPixelId,
+        accessToken: workspace.metaAccessToken,
+        testEventCode: workspace.metaTestEventCode ?? undefined,
+        customData: {
+          funnel_stage: stage.name,
+          // Purchase exige value + currency como número (Meta API rejeita Decimal/string)
+          ...(stage.pixelEventName === "Purchase"
+            ? { value: Number(stage.purchaseValue ?? 0), currency: "BRL" }
+            : {}),
+        },
+      });
+      await prisma.pixelFire.update({ where: { id: pixelFire.id }, data: { success: true } });
+      await prisma.conversation.update({ where: { id: conversationId }, data: { leadScore: { increment: 15 } } });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      await prisma.pixelFire.update({ where: { id: pixelFire.id }, data: { errorMessage: message } });
+    }
+  }
+}
+
 export async function processMessage(msg: InboundMessage) {
   console.log(`[processMessage] instanceName=${msg.instanceName} phone=${msg.phone} dir=${msg.direction} content="${msg.content.slice(0, 40)}"`);
 
@@ -44,9 +98,9 @@ export async function processMessage(msg: InboundMessage) {
     include: {
       pixelEvents: { where: { active: true } },
       funnelStages: {
-        where: { triggerKeyword: { not: null } },
+        where: { OR: [{ triggerKeyword: { not: null } }, { isFirstContact: true }] },
         orderBy: { order: "asc" },
-        select: { id: true, name: true, pixelEventName: true, triggerKeyword: true, purchaseValue: true },
+        select: { id: true, name: true, pixelEventName: true, triggerKeyword: true, purchaseValue: true, isFirstContact: true },
       },
       trackableLinks: {
         where: { welcomeMessage: { not: null } },
@@ -60,6 +114,14 @@ export async function processMessage(msg: InboundMessage) {
     return;
   }
   console.log(`[processMessage] workspace=${workspace.id} (${workspace.name})`);
+
+  // Verifica se esse contato já existia antes dessa mensagem — usado para detectar
+  // o "primeiro contato" e mover a conversa automaticamente pra etapa correspondente
+  const existingConversation = await prisma.conversation.findUnique({
+    where: { workspaceId_phone: { workspaceId: workspace.id, phone: msg.phone } },
+    select: { id: true },
+  });
+  const isNewContact = !existingConversation;
 
   // Tenta identificar se a mensagem veio através de um Link Rastreável: o WhatsApp
   // pré-preenche o texto com a "mensagem de boas-vindas" cadastrada no link, então
@@ -129,52 +191,42 @@ export async function processMessage(msg: InboundMessage) {
     if (code !== "P2002") console.error(`[processMessage] message.create error:`, e);
   }
 
-  // ── 1. Check funnel stage keywords ─────────────────────────────────
+  // ── 1. Primeiro contato: contato novo cai automaticamente na etapa marcada
+  // como "Primeiro Contato" e dispara o evento (Contact, por padrão) ──────────
+  const firstContactStage = workspace.funnelStages.find((s) => s.isFirstContact);
+  let movedByFirstContact = false;
+
+  if (isNewContact && msg.direction === "inbound" && firstContactStage && conversation.funnelStageId !== firstContactStage.id) {
+    await moveToFunnelStage({
+      conversationId: conversation.id,
+      conversationName: conversation.name,
+      stage: firstContactStage,
+      workspace,
+      phone: msg.phone,
+      timestamp: msg.timestamp,
+    });
+    movedByFirstContact = true;
+  }
+
+  // ── 2. Verifica frases-gatilho das demais etapas da jornada ────────────────
   for (const stage of workspace.funnelStages) {
+    if (stage.isFirstContact) continue; // já tratada acima
     if (!stage.triggerKeyword) continue;
 
     const keywords = stage.triggerKeyword.split(/[\n,]+/).map((k) => normalizeText(k.trim())).filter(Boolean);
     const matches = keywords.some((kw) => contentNorm.includes(kw));
 
     if (!matches) continue;
-    if (conversation.funnelStageId === stage.id) continue; // já nessa etapa
+    if (conversation.funnelStageId === stage.id || (movedByFirstContact && firstContactStage?.id === stage.id)) continue; // já nessa etapa
 
-    // Move conversa para a etapa
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: { funnelStageId: stage.id },
+    await moveToFunnelStage({
+      conversationId: conversation.id,
+      conversationName: conversation.name,
+      stage,
+      workspace,
+      phone: msg.phone,
+      timestamp: msg.timestamp,
     });
-
-    // Dispara pixel se a etapa tiver evento vinculado
-    if (stage.pixelEventName && workspace.metaPixelId && workspace.metaAccessToken) {
-      const pixelFire = await prisma.pixelFire.create({
-        data: { conversationId: conversation.id, eventName: stage.pixelEventName, success: false },
-      });
-      try {
-        await fireConversionEvent({
-          eventName: stage.pixelEventName,
-          eventId: pixelFire.eventId,
-          eventTime: Math.floor(msg.timestamp.getTime() / 1000),
-          phone: msg.phone,
-          name: conversation.name,
-          pixelId: workspace.metaPixelId,
-          accessToken: workspace.metaAccessToken,
-          testEventCode: workspace.metaTestEventCode ?? undefined,
-          customData: {
-            funnel_stage: stage.name,
-            // Purchase exige value + currency como número (Meta API rejeita Decimal/string)
-            ...(stage.pixelEventName === "Purchase"
-              ? { value: Number(stage.purchaseValue ?? 0), currency: "BRL" }
-              : {}),
-          },
-        });
-        await prisma.pixelFire.update({ where: { id: pixelFire.id }, data: { success: true } });
-        await prisma.conversation.update({ where: { id: conversation.id }, data: { leadScore: { increment: 15 } } });
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        await prisma.pixelFire.update({ where: { id: pixelFire.id }, data: { errorMessage: message } });
-      }
-    }
 
     break; // só aplica a primeira etapa que bater
   }
