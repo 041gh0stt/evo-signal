@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, Link2,
-  Settings, TrendingUp, LogOut, Radio, GitBranch,
+  Settings, TrendingUp, LogOut, GitBranch,
   Users, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,13 +28,15 @@ export function Sidebar() {
   return (
     <aside className="w-60 flex flex-col border-r border-zinc-800 bg-zinc-900/50 shrink-0">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-zinc-800">
-        <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-          <Radio className="w-4 h-4 text-zinc-900" />
-        </div>
-        <span className="font-bold text-base tracking-tight text-zinc-100">
-          EVO <span className="text-emerald-400">SIGNAL</span>
-        </span>
+      <div className="flex items-center px-5 py-5 border-b border-zinc-800">
+        <Image
+          src="/pingo-logo.png"
+          alt="Pingo"
+          width={1140}
+          height={441}
+          priority
+          className="h-9 w-auto"
+        />
       </div>
 
       {/* Nav */}

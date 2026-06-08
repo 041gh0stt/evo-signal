@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Radio } from "lucide-react";
+import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,13 +34,8 @@ export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <div className="flex items-center justify-center gap-2.5 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center">
-            <Radio className="w-5 h-5 text-zinc-900" />
-          </div>
-          <span className="font-bold text-xl tracking-tight text-zinc-100">
-            EVO <span className="text-emerald-400">SIGNAL</span>
-          </span>
+        <div className="flex items-center justify-center mb-4">
+          <Image src="/pingo-logo.png" alt="Pingo" width={1140} height={441} priority className="h-12 w-auto" />
         </div>
         <h1 className="text-xl font-bold text-zinc-100">Entrar na sua conta</h1>
         <p className="text-sm text-zinc-500">Rastreamento de WhatsApp + Meta Pixel</p>

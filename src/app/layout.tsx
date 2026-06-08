@@ -10,8 +10,11 @@ const jakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "EVO SIGNAL — Rastreamento WhatsApp + Meta Pixel",
+  title: "Pingo — Rastreamento WhatsApp + Meta Pixel",
   description: "Rastreie conversas do WhatsApp e dispare eventos para o Meta Pixel com precisão.",
+  icons: {
+    icon: "/pingo-logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
