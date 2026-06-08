@@ -4,32 +4,35 @@ import { useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import {
   GitBranch, Settings2, Plus, GripVertical,
-  MessageSquare, Zap, Star, Check, X
+  MessageSquare, Zap, Star, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const STAGE_COLORS = ["#6b7280","#3b82f6","#8b5cf6","#ec4899","#f59e0b","#10b981","#ef4444","#06b6d4"];
-
 const ORIGIN_CONFIG: Record<string, { label: string; color: string }> = {
   meta_ads: { label: "Meta Ads", color: "#3b82f6" },
-  untracked: { label: "Não Rastreado", color: "#f59e0b" },
+  untracked: { label: "Orgânico", color: "#f59e0b" },
 };
 
 const mockStages = [
   { id: "s1", name: "Novo Lead", color: "#3b82f6", order: 0 },
-  { id: "s2", name: "Qualificado", color: "#8b5cf6", order: 1 },
+  { id: "s2", name: "Em Negociação", color: "#8b5cf6", order: 1 },
   { id: "s3", name: "Proposta Enviada", color: "#f59e0b", order: 2 },
-  { id: "s4", name: "Fechado", color: "#10b981", order: 3 },
+  { id: "s4", name: "Fechado ✓", color: "#10b981", order: 3 },
 ];
 
 const mockConversations = [
-  { id: "1", phone: "5511999990001", name: "Ana Paula Lima", origin: "meta_ads", leadScore: 80, funnelStageId: "s2", _count: { messages: 12, pixelFires: 2 } },
-  { id: "2", phone: "5511999990002", name: "Carlos Mendes", origin: "untracked", leadScore: 20, funnelStageId: null, _count: { messages: 3, pixelFires: 0 } },
-  { id: "3", phone: "5511999990003", name: "Fernanda Costa", origin: "meta_ads", leadScore: 100, funnelStageId: "s4", _count: { messages: 24, pixelFires: 3 } },
-  { id: "4", phone: "5521988880004", name: "Roberto Silva", origin: "untracked", leadScore: 0, funnelStageId: null, _count: { messages: 1, pixelFires: 0 } },
-  { id: "5", phone: "5521988880005", name: "Juliana Ramos", origin: "meta_ads", leadScore: 60, funnelStageId: "s1", _count: { messages: 8, pixelFires: 1 } },
-  { id: "6", phone: "5531977770006", name: "Marcos Oliveira", origin: "meta_ads", leadScore: 40, funnelStageId: "s3", _count: { messages: 5, pixelFires: 1 } },
-  { id: "7", phone: "5531977770007", name: "Patrícia Souza", origin: "untracked", leadScore: 20, funnelStageId: "s1", _count: { messages: 2, pixelFires: 0 } },
+  { id: "1",  phone: "5511994821043", name: "Beatriz Almeida",   origin: "meta_ads",  leadScore: 95,  funnelStageId: "s2", _count: { messages: 18, pixelFires: 3 } },
+  { id: "2",  phone: "5521987654321", name: "Rafael Torres",     origin: "meta_ads",  leadScore: 80,  funnelStageId: "s3", _count: { messages: 9,  pixelFires: 2 } },
+  { id: "3",  phone: "5531996420187", name: "Camila Ferreira",   origin: "meta_ads",  leadScore: 100, funnelStageId: "s4", _count: { messages: 31, pixelFires: 4 } },
+  { id: "4",  phone: "5541988731290", name: "Lucas Martins",     origin: "untracked", leadScore: 15,  funnelStageId: null, _count: { messages: 2,  pixelFires: 0 } },
+  { id: "5",  phone: "5511992038471", name: "Mariana Gomes",     origin: "meta_ads",  leadScore: 70,  funnelStageId: "s1", _count: { messages: 14, pixelFires: 2 } },
+  { id: "6",  phone: "5519981234567", name: "André Nascimento",  origin: "meta_ads",  leadScore: 55,  funnelStageId: "s3", _count: { messages: 7,  pixelFires: 1 } },
+  { id: "7",  phone: "5511993847210", name: "Fernanda Costa",    origin: "meta_ads",  leadScore: 90,  funnelStageId: "s2", _count: { messages: 22, pixelFires: 3 } },
+  { id: "8",  phone: "5521996001122", name: "Diego Carvalho",    origin: "untracked", leadScore: 30,  funnelStageId: "s1", _count: { messages: 4,  pixelFires: 0 } },
+  { id: "9",  phone: "5531977884433", name: "Priscila Santos",   origin: "meta_ads",  leadScore: 85,  funnelStageId: "s4", _count: { messages: 19, pixelFires: 2 } },
+  { id: "10", phone: "5511998271634", name: "Thiago Pereira",    origin: "meta_ads",  leadScore: 60,  funnelStageId: "s2", _count: { messages: 11, pixelFires: 1 } },
+  { id: "11", phone: "5561991203847", name: "Júlia Rodrigues",   origin: "untracked", leadScore: 20,  funnelStageId: null, _count: { messages: 3,  pixelFires: 0 } },
+  { id: "12", phone: "5511994556677", name: "Eduardo Lima",      origin: "meta_ads",  leadScore: 75,  funnelStageId: "s1", _count: { messages: 8,  pixelFires: 1 } },
 ];
 
 export default function DemoFunilPage() {
@@ -57,7 +60,7 @@ export default function DemoFunilPage() {
               <GitBranch className="w-5 h-5 text-emerald-400" />
               Funil de Vendas
             </h1>
-            <p className="text-sm text-zinc-500 mt-0.5">{conversations.length} conversas no funil</p>
+            <p className="text-sm text-zinc-500 mt-0.5">{conversations.length} conversas · {conversations.filter(c => c.funnelStageId === "s4").length} fechadas hoje</p>
           </div>
           <Button variant="outline" size="sm" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1.5">
             <Settings2 className="w-4 h-4" /> Configurar Estágios

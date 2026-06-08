@@ -13,8 +13,12 @@ import {
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const mockWorkspace = { id: "demo", name: "Beltez Odontologia", whatsappConnected: true, whatsappPhone: "5511999990000", role: "owner" };
-const mockAllWorkspaces = [mockWorkspace, { id: "d2", name: "Dr. Renato Peréa", whatsappConnected: true, whatsappPhone: "5593991072525", role: "owner" }];
+const mockWorkspace = { id: "demo", name: "Clínica Bella Forma", whatsappConnected: true, whatsappPhone: "5511994000100", role: "owner" };
+const mockAllWorkspaces = [
+  mockWorkspace,
+  { id: "d2", name: "Studio Fit Academia", whatsappConnected: true, whatsappPhone: "5521991002233", role: "owner" },
+  { id: "d3", name: "Imobiliária Prime", whatsappConnected: true, whatsappPhone: "5531988550044", role: "owner" },
+];
 
 const STAGES = [
   { id: "s1", name: "Fez Contato", color: "#3b82f6" },
@@ -33,46 +37,58 @@ const h = (n: number) => new Date(now.getTime() - n * 60 * 60 * 1000);
 const m = (n: number) => new Date(now.getTime() - n * 60 * 1000);
 
 const CONVERSATIONS = [
-  { id: "c1", phone: "(95) 99142-2880", name: null, origin: "untracked", leadScore: 20, funnelStageId: "s1", firstMessageAt: h(3), lastMessageAt: m(5) },
-  { id: "c2", phone: "(95) 99143-6814", name: "Mirely Santos", origin: "meta_ads", leadScore: 80, funnelStageId: "s2", firstMessageAt: h(48), lastMessageAt: m(22) },
-  { id: "c3", phone: "(95) 99162-7101", name: "Karine Lima", origin: "meta_ads", leadScore: 100, funnelStageId: "s3", firstMessageAt: h(6), lastMessageAt: m(60) },
-  { id: "c4", phone: "(95) 98116-9597", name: "Advocacia Especializada", origin: "untracked", leadScore: 0, funnelStageId: "s1", firstMessageAt: h(72), lastMessageAt: m(120) },
-  { id: "c5", phone: "(95) 98426-6488", name: "Eyshila Torres", origin: "meta_ads", leadScore: 60, funnelStageId: "s2", firstMessageAt: h(120), lastMessageAt: h(24) },
-  { id: "c6", phone: "(11) 98888-1234", name: "João Fernandes", origin: "meta_ads", leadScore: 40, funnelStageId: null, firstMessageAt: h(2), lastMessageAt: m(10) },
+  { id: "c1", phone: "(11) 99481-2043", name: "Beatriz Almeida",   origin: "meta_ads",  leadScore: 95,  funnelStageId: "s2", firstMessageAt: h(2),   lastMessageAt: m(2) },
+  { id: "c2", phone: "(21) 98765-4321", name: "Rafael Torres",     origin: "meta_ads",  leadScore: 80,  funnelStageId: "s2", firstMessageAt: h(48),  lastMessageAt: m(11) },
+  { id: "c3", phone: "(31) 99642-0187", name: "Camila Ferreira",   origin: "meta_ads",  leadScore: 100, funnelStageId: "s3", firstMessageAt: h(6),   lastMessageAt: m(34) },
+  { id: "c4", phone: "(41) 98873-1290", name: null,                origin: "untracked", leadScore: 10,  funnelStageId: "s1", firstMessageAt: h(72),  lastMessageAt: m(58) },
+  { id: "c5", phone: "(19) 99203-8471", name: "Mariana Gomes",     origin: "meta_ads",  leadScore: 70,  funnelStageId: "s2", firstMessageAt: h(120), lastMessageAt: h(2) },
+  { id: "c6", phone: "(11) 99812-3456", name: "André Nascimento",  origin: "meta_ads",  leadScore: 55,  funnelStageId: null, firstMessageAt: h(3),   lastMessageAt: m(10) },
+  { id: "c7", phone: "(11) 99384-7210", name: "Fernanda Costa",    origin: "meta_ads",  leadScore: 90,  funnelStageId: "s2", firstMessageAt: h(8),   lastMessageAt: h(1) },
+  { id: "c8", phone: "(21) 99600-1122", name: null,                origin: "untracked", leadScore: 5,   funnelStageId: "s1", firstMessageAt: h(4),   lastMessageAt: h(3) },
 ];
 
 const MESSAGES: Record<string, { id: string; direction: string; content: string; timestamp: Date }[]> = {
   c1: [
-    { id: "m1", direction: "inbound", content: "Olá! Boa noite ❤️\nPerdão pelo horário!\nGostaria de saber se estão precisando de secretária / recepcionista ❤️", timestamp: m(15) },
-    { id: "m2", direction: "inbound", content: "[mídia]", timestamp: m(14) },
-    { id: "m3", direction: "outbound", content: "*Beltez Odontologia:*\nOlá! Agradecemos o contato, mas não atendemos a esse tipo de solicitação. Se precisar de algo relacionado à clínica, estamos à disposição!", timestamp: m(10) },
-    { id: "m4", direction: "inbound", content: "Obrigada pelo retorno. 💗", timestamp: m(8) },
-    { id: "m5", direction: "outbound", content: "*Beltez Odontologia:*\nQue bom! Qualquer coisa, é só chamar. Tenha uma ótima noite! 😊", timestamp: m(5) },
+    { id: "m0a", direction: "inbound",  content: "Oi! Vi o anúncio de vocês no Instagram. Quero fazer harmonização facial 😍", timestamp: h(2) },
+    { id: "m0b", direction: "outbound", content: "Olá Beatriz! Bem-vinda 😊 Temos ótimas opções de harmonização. Posso te passar os valores e agendar uma avaliação gratuita?", timestamp: h(2) },
+    { id: "m0c", direction: "inbound",  content: "Sim por favor! Tenho disponibilidade essa semana", timestamp: m(30) },
+    { id: "m0d", direction: "outbound", content: "Ótimo! Temos quinta às 15h ou sexta às 10h. Qual prefere?", timestamp: m(25) },
+    { id: "m0e", direction: "inbound",  content: "Quinta às 15h perfeito! 🥰", timestamp: m(2) },
   ],
   c2: [
-    { id: "m10", direction: "inbound", content: "Oi, vi o anúncio de vocês no Instagram. Quero saber mais sobre o clareamento dental 😊", timestamp: h(48) },
-    { id: "m11", direction: "outbound", content: "Olá Mirely! Tudo bem? 😊 Temos o clareamento a laser com ótimo resultado. Você tem disponibilidade para vir em uma avaliação?", timestamp: h(47) },
-    { id: "m12", direction: "inbound", content: "Tenho sim! Qual o preço?", timestamp: h(47) },
-    { id: "m13", direction: "outbound", content: "A avaliação é gratuita! O tratamento fica entre R$ 800 a R$ 1.200 dependendo do caso. Posso agendar para esta semana?", timestamp: h(46) },
-    { id: "m14", direction: "inbound", content: "Perfeito! Quinta-feira às 14h serve pra mim 👍", timestamp: h(46) },
-    { id: "m15", direction: "outbound", content: "Anotado! Quinta-feira às 14h, Mirely. A clínica fica na Rua das Flores, 123. Até lá! 🦷✨", timestamp: h(45) },
+    { id: "m10", direction: "inbound",  content: "Oi, vi o anúncio de vocês no Facebook. Quero saber mais sobre o clareamento dental 😊", timestamp: h(48) },
+    { id: "m11", direction: "outbound", content: "Olá Rafael! Tudo bem? 😊 Temos clareamento a laser com resultado incrível. Posso agendar uma avaliação gratuita?", timestamp: h(47) },
+    { id: "m12", direction: "inbound",  content: "Pode sim! Qual o preço aproximado?", timestamp: h(47) },
+    { id: "m13", direction: "outbound", content: "A avaliação é gratuita! O tratamento fica entre R$ 800 a R$ 1.200. Posso agendar essa semana?", timestamp: h(46) },
+    { id: "m14", direction: "inbound",  content: "Quinta-feira às 14h serve pra mim 👍", timestamp: h(46) },
+    { id: "m15", direction: "outbound", content: "Anotado, Rafael! Quinta-feira às 14h. Nos vemos lá! 🦷✨", timestamp: h(45) },
   ],
   c3: [
-    { id: "m20", direction: "inbound", content: "Oi! Quero fazer implante. Vi o anúncio de vocês.", timestamp: h(6) },
-    { id: "m21", direction: "outbound", content: "Olá Karine! Ótima escolha! Trabalhamos com implantes de alta qualidade. Vamos agendar sua avaliação?", timestamp: h(6) },
-    { id: "m22", direction: "inbound", content: "Sim! Pode ser amanhã cedo?", timestamp: h(5) },
+    { id: "m20", direction: "inbound",  content: "Oi! Vi o anúncio de vocês. Quero fazer botox e preenchimento labial 💉", timestamp: h(6) },
+    { id: "m21", direction: "outbound", content: "Olá Camila! Trabalhamos com os melhores produtos do mercado 🥰 Vamos agendar sua avaliação?", timestamp: h(6) },
+    { id: "m22", direction: "inbound",  content: "Sim! Pode ser amanhã de manhã?", timestamp: h(5) },
     { id: "m23", direction: "outbound", content: "Perfeito! Amanhã às 9h está ótimo. Confirma?", timestamp: h(5) },
-    { id: "m24", direction: "inbound", content: "Confirmado! Obrigada 💚", timestamp: h(4) },
-    { id: "m25", direction: "outbound", content: "Às 9h te esperamos! Traga seu RG e plano de saúde se tiver 😊", timestamp: h(3) },
-    { id: "m26", direction: "inbound", content: "Fiz o procedimento hoje. Amei! Já posso recomendar pra minha família?", timestamp: m(60) },
-    { id: "m27", direction: "outbound", content: "Que maravilha Karine!! Fico muito feliz 🥹 Claro, pode indicar! Temos desconto especial para indicações 🦷❤️", timestamp: m(55) },
+    { id: "m24", direction: "inbound",  content: "Confirmado! 💚", timestamp: h(4) },
+    { id: "m25", direction: "outbound", content: "Às 9h te esperamos! 😊", timestamp: h(3) },
+    { id: "m26", direction: "inbound",  content: "Adorei o resultado!! Já indiquei pra duas amigas 🥹", timestamp: m(34) },
+    { id: "m27", direction: "outbound", content: "Que maravilha Camila!! Fico feliz demais 🥹❤️ Temos desconto especial para indicações!", timestamp: m(30) },
+  ],
+  c7: [
+    { id: "m30", direction: "inbound",  content: "Boa tarde! Vi o anúncio de lifting facial. Gostaria de mais informações 🙏", timestamp: h(8) },
+    { id: "m31", direction: "outbound", content: "Boa tarde Fernanda! Temos ótimas opções de bioestimuladores e lifting sem cirurgia. Posso te chamar para uma avaliação?", timestamp: h(8) },
+    { id: "m32", direction: "inbound",  content: "Com certeza! Quanto tempo dura o efeito?", timestamp: h(7) },
+    { id: "m33", direction: "outbound", content: "De 12 a 18 meses dependendo do procedimento. Avaliação gratuita para você conhecer o resultado!", timestamp: h(7) },
+    { id: "m34", direction: "inbound",  content: "Ótimo! Me agenda para sexta à tarde", timestamp: h(2) },
+    { id: "m35", direction: "outbound", content: "Sexta às 16h anotado! Até lá 😊", timestamp: h(1) },
   ],
 };
 
 const PIXEL_FIRES: Record<string, { id: string; eventName: string; success: boolean }[]> = {
-  c2: [{ id: "pf1", eventName: "Lead", success: true }, { id: "pf2", eventName: "Schedule", success: true }],
-  c3: [{ id: "pf3", eventName: "Lead", success: true }, { id: "pf4", eventName: "Purchase", success: true }],
-  c5: [{ id: "pf5", eventName: "Lead", success: true }],
+  c1: [{ id: "pf1", eventName: "Lead", success: true }, { id: "pf2", eventName: "InitiateCheckout", success: true }],
+  c2: [{ id: "pf3", eventName: "Lead", success: true }, { id: "pf4", eventName: "Schedule", success: true }],
+  c3: [{ id: "pf5", eventName: "Lead", success: true }, { id: "pf6", eventName: "Purchase", success: true }],
+  c5: [{ id: "pf7", eventName: "Lead", success: true }],
+  c7: [{ id: "pf8", eventName: "Lead", success: true }, { id: "pf9", eventName: "Schedule", success: true }, { id: "pf10", eventName: "Purchase", success: true }],
 };
 
 export default function DemoConversasPage() {
