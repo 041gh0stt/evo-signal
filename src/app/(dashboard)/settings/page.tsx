@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Trash2, AlertTriangle, Link2, Unlink, ChevronDown, Check } from "lucide-react";
 import Image from "next/image";
+import { TeamMembersCard } from "@/components/settings/team-members-card";
 
 interface WorkspaceSettings {
   id: string;
@@ -261,6 +262,11 @@ export default function SettingsPage() {
         </div>
         <p className="text-xs text-zinc-600">Este nome também é usado para identificar a instância do WhatsApp.</p>
       </Card>
+
+      <Separator className="bg-zinc-800" />
+
+      {/* Membros da equipe */}
+      <TeamMembersCard />
 
       <Separator className="bg-zinc-800" />
 

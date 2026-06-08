@@ -43,7 +43,20 @@ model User {
   accounts      Account[]
   sessions      Session[]
   workspaces    WorkspaceMember[]
+  passwordResets PasswordResetToken[]
   createdAt     DateTime  @default(now())
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -67,6 +80,7 @@ model Workspace {
   metaUserToken      String?            @db.Text
   metaAdAccountId    String?
   members            WorkspaceMember[]
+  invites            WorkspaceInvite[]
   trackableLinks     TrackableLink[]
   conversations      Conversation[]
   pixelEvents        PixelEventConfig[]
@@ -85,6 +99,22 @@ model WorkspaceMember {
   createdAt   DateTime  @default(now())
 
   @@unique([workspaceId, userId])
+}
+
+// Convite pendente para alguém entrar em um workspace existente.
+// Gera um link compartilhável (/convite/[token]) — não depende de envio de e-mail.
+model WorkspaceInvite {
+  id          String    @id @default(cuid())
+  workspaceId String
+  email       String
+  role        String    @default("member")
+  token       String    @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
 }
 
 model TrackableLink {

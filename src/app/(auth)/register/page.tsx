@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Image from "next/image";
 import { Card } from "@/components/ui/card";
@@ -11,7 +11,17 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -41,7 +51,7 @@ export default function RegisterPage() {
       redirect: false,
     });
 
-    router.push("/onboarding");
+    router.push(redirectTo && redirectTo.startsWith("/convite/") ? redirectTo : "/onboarding");
   }
 
   return (

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,17 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -27,7 +37,7 @@ export default function LoginPage() {
     if (res?.error) {
       toast.error("Email ou senha inválidos");
     } else {
-      router.push("/dashboard");
+      router.push(redirectTo && redirectTo.startsWith("/convite/") ? redirectTo : "/dashboard");
     }
   }
 
@@ -72,6 +82,11 @@ export default function LoginPage() {
           >
             {loading ? "Entrando..." : "Entrar"}
           </Button>
+          <p className="text-center">
+            <a href="/forgot-password" className="text-xs text-zinc-500 hover:text-emerald-400 hover:underline">
+              Esqueci minha senha
+            </a>
+          </p>
         </form>
       </Card>
 

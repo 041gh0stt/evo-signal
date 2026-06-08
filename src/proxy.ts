@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  // Páginas públicas que não exigem sessão ativa
+  const isPublicAuthPage =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password");
+  // Dessas, só login/registro redirecionam para o dashboard se o usuário já estiver logado
+  // (esqueci-senha/redefinir-senha continuam acessíveis mesmo com sessão ativa)
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
   const sessionToken =
     req.cookies.get("next-auth.session-token")?.value ||
@@ -11,7 +19,7 @@ export function proxy(req: NextRequest) {
 
   const isLoggedIn = !!sessionToken;
 
-  if (!isLoggedIn && !isAuthPage && !pathname.startsWith("/onboarding") && !pathname.startsWith("/demo") && !pathname.startsWith("/demo-funil") && !pathname.startsWith("/demo-conversas") && !pathname.startsWith("/r/") && !pathname.startsWith("/conectar/")) {
+  if (!isLoggedIn && !isPublicAuthPage && !pathname.startsWith("/onboarding") && !pathname.startsWith("/demo") && !pathname.startsWith("/demo-funil") && !pathname.startsWith("/demo-conversas") && !pathname.startsWith("/r/") && !pathname.startsWith("/conectar/") && !pathname.startsWith("/convite/")) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
