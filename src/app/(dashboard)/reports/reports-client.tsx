@@ -3,13 +3,13 @@
 import { Card } from "@/components/ui/card";
 import {
   TrendingUp, Zap, MessageSquare, Link2, DollarSign, Target,
-  ChevronDown, CheckCircle2, XCircle,
+  ChevronDown, CheckCircle2, XCircle, Download, Loader2,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { DateRangePicker, DateRange } from "@/components/ui/date-range-picker";
 
 const ORIGIN_COLORS: Record<string, string> = {
@@ -82,6 +82,35 @@ export function ReportsClient({
   const [rangeOpen, setRangeOpen] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [customRange, setCustomRange] = useState<DateRange>({ from: customFrom, to: customTo });
+  const [exporting, setExporting] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  async function exportToPdf() {
+    if (!exportRef.current || exporting) return;
+    setExporting(true);
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const node = exportRef.current;
+      const canvas = await html2canvas(node, {
+        backgroundColor: "#09090b",
+        scale: 2,
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdfWidth = 595; // A4 width in pt
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: [pdfWidth, pdfHeight] });
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`relatorio-evosignal-${rangeKey}.pdf`);
+    } catch (err) {
+      console.error("Falha ao exportar relatório em PDF:", err);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   function selectRange(key: string) {
     if (key === "custom") {
@@ -169,14 +198,24 @@ export function ReportsClient({
             )}
           </div>
         </div>
+
+        <button
+          onClick={exportToPdf}
+          disabled={exporting}
+          className="flex items-center gap-2 text-xs font-medium text-zinc-300 bg-zinc-900 border border-zinc-700 hover:border-zinc-600 hover:text-zinc-100 transition-colors rounded-lg px-3.5 py-2 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+          {exporting ? "Gerando PDF…" : "Exportar PDF"}
+        </button>
       </div>
 
+      <div ref={exportRef} className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiCards.map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="bg-zinc-900/50 border-zinc-800 p-4">
-            <div className={`inline-flex p-2 rounded-lg border mb-3 ${colorClasses[color]}`}>
-              <Icon className="w-4 h-4" />
+            <div className={`inline-flex p-1.5 rounded-md border mb-2 ${colorClasses[color]}`}>
+              <Icon className="w-3.5 h-3.5" />
             </div>
             <div className="text-2xl font-bold text-zinc-100">{value}</div>
             <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
@@ -344,6 +383,7 @@ export function ReportsClient({
           consegue identificar a origem de cada novo lead automaticamente.
         </p>
       </Card>
+      </div>
     </div>
   );
 }
