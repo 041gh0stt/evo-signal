@@ -1,39 +1,84 @@
 export const dynamic = "force-dynamic";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { TrendingUp, Zap, MessageSquare, Link2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { getActiveWorkspace } from "@/lib/workspace";
+import { ReportsClient } from "./reports-client";
 
-export default async function ReportsPage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+const RANGES: Record<string, () => { since: Date; label: string }> = {
+  "7d":  () => ({ since: new Date(Date.now() - 7  * 24 * 60 * 60 * 1000), label: "Últimos 7 dias" }),
+  "30d": () => ({ since: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), label: "Últimos 30 dias" }),
+  "90d": () => ({ since: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), label: "Últimos 90 dias" }),
+  "month": () => {
+    const n = new Date();
+    return { since: new Date(n.getFullYear(), n.getMonth(), 1), label: "Este mês" };
+  },
+  "last_month": () => {
+    const n = new Date();
+    return { since: new Date(n.getFullYear(), n.getMonth() - 1, 1), label: "Mês passado" };
+  },
+};
 
-  const member = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-  });
-  if (!member) redirect("/onboarding");
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+}) {
+  const workspace = await getActiveWorkspace();
+  if (!workspace) redirect("/onboarding");
 
-  const wid = member.workspaceId;
-  const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const since7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const { range: rawRange, from: rawFrom, to: rawTo } = await searchParams;
 
-  const [total30, total7, tracked30, pixelFires30, topOrigins, topEvents] = await Promise.all([
-    prisma.conversation.count({ where: { workspaceId: wid, createdAt: { gte: since30 } } }),
-    prisma.conversation.count({ where: { workspaceId: wid, createdAt: { gte: since7 } } }),
-    prisma.conversation.count({ where: { workspaceId: wid, createdAt: { gte: since30 }, NOT: { origin: "untracked" } } }),
-    prisma.pixelFire.count({ where: { conversation: { workspaceId: wid }, firedAt: { gte: since30 }, success: true } }),
-    prisma.conversation.groupBy({
-      by: ["origin"],
-      where: { workspaceId: wid, createdAt: { gte: since30 } },
-      _count: true,
-      orderBy: { _count: { origin: "desc" } },
+  let since: Date;
+  let until: Date | undefined;
+  let rangeKey: string;
+  let rangeLabel: string;
+
+  if (rawRange === "custom" && rawFrom) {
+    since = new Date(rawFrom + "T00:00:00");
+    until = rawTo ? new Date(rawTo + "T23:59:59") : undefined;
+    rangeKey = "custom";
+    const fmt = (s: string) => s.split("-").reverse().join("/");
+    rangeLabel = rawTo && rawTo !== rawFrom
+      ? `${fmt(rawFrom)} → ${fmt(rawTo)}`
+      : fmt(rawFrom);
+  } else {
+    const key = rawRange && RANGES[rawRange] ? rawRange : "30d";
+    rangeKey = key;
+    const r = RANGES[key]();
+    since = r.since;
+    rangeLabel = r.label;
+    until = key === "last_month"
+      ? new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+      : undefined;
+  }
+
+  const wid = workspace.id;
+  const dateFilter = { gte: since, ...(until ? { lt: until } : {}) };
+
+  const [
+    conversations,
+    funnelStagesRaw,
+    pixelFiresGrouped,
+    pixelFiresFailedGrouped,
+  ] = await Promise.all([
+    prisma.conversation.findMany({
+      where: { workspaceId: wid, createdAt: dateFilter },
+      select: { id: true, createdAt: true, origin: true, funnelStageId: true },
+    }),
+    prisma.funnelStage.findMany({
+      where: { workspaceId: wid },
+      orderBy: { order: "asc" },
+      select: { id: true, name: true, color: true, order: true, isSale: true, purchaseValue: true, pixelEventName: true },
     }),
     prisma.pixelFire.groupBy({
       by: ["eventName"],
-      where: { conversation: { workspaceId: wid }, firedAt: { gte: since30 }, success: true },
+      where: { conversation: { workspaceId: wid }, firedAt: dateFilter, success: true },
       _count: true,
-      orderBy: { _count: { eventName: "desc" } },
+    }),
+    prisma.pixelFire.groupBy({
+      by: ["eventName"],
+      where: { conversation: { workspaceId: wid }, firedAt: dateFilter, success: false },
+      _count: true,
     }),
   ]);
 
@@ -44,117 +89,101 @@ export default async function ReportsPage() {
     untracked: "Não Rastreado",
   };
 
+  const stageById = new Map(funnelStagesRaw.map((s) => [s.id, s]));
+  const saleStageIds = new Set(funnelStagesRaw.filter((s) => s.isSale).map((s) => s.id));
+
+  // KPIs principais
+  const totalConversations = conversations.length;
+  const trackedConversations = conversations.filter((c) => c.origin !== "untracked").length;
+  const trackedRate = totalConversations > 0 ? Math.round((trackedConversations / totalConversations) * 100) : 0;
+
+  let salesCount = 0;
+  let revenue = 0;
+  for (const c of conversations) {
+    if (c.funnelStageId && saleStageIds.has(c.funnelStageId)) {
+      salesCount++;
+      revenue += stageById.get(c.funnelStageId)?.purchaseValue ?? 0;
+    }
+  }
+
+  // Série diária de conversas (agrupamento em JS)
+  const dayMap = new Map<string, number>();
+  for (const c of conversations) {
+    const key = c.createdAt.toISOString().slice(0, 10);
+    dayMap.set(key, (dayMap.get(key) ?? 0) + 1);
+  }
+  const dailySeries = Array.from(dayMap.entries())
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([date, count]) => {
+      const [, m, d] = date.split("-");
+      return { date, label: `${d}/${m}`, count };
+    });
+
+  // Conversão por origem (leads x vendas dentro do período)
+  const originMap = new Map<string, { leads: number; sales: number }>();
+  for (const c of conversations) {
+    const entry = originMap.get(c.origin) ?? { leads: 0, sales: 0 };
+    entry.leads++;
+    if (c.funnelStageId && saleStageIds.has(c.funnelStageId)) entry.sales++;
+    originMap.set(c.origin, entry);
+  }
+  const originStats = Array.from(originMap.entries())
+    .map(([origin, { leads, sales }]) => ({
+      origin,
+      label: ORIGIN_LABELS[origin] ?? origin,
+      leads,
+      sales,
+      conversionRate: leads > 0 ? Math.round((sales / leads) * 100) : 0,
+    }))
+    .sort((a, b) => b.leads - a.leads);
+
+  // Funil da jornada — quantas conversas (criadas no período) estão em cada etapa atualmente
+  const stageCountMap = new Map<string, number>();
+  for (const c of conversations) {
+    if (!c.funnelStageId) continue;
+    stageCountMap.set(c.funnelStageId, (stageCountMap.get(c.funnelStageId) ?? 0) + 1);
+  }
+  const funnelStages = funnelStagesRaw.map((s) => ({
+    id: s.id,
+    name: s.name,
+    color: s.color,
+    order: s.order,
+    isSale: s.isSale,
+    pixelEventName: s.pixelEventName,
+    count: stageCountMap.get(s.id) ?? 0,
+  }));
+
+  // Eventos de pixel — sucesso x falha
+  const failedMap = new Map(pixelFiresFailedGrouped.map((f) => [f.eventName, f._count]));
+  const allEventNames = new Set([
+    ...pixelFiresGrouped.map((f) => f.eventName),
+    ...pixelFiresFailedGrouped.map((f) => f.eventName),
+  ]);
+  const pixelEvents = Array.from(allEventNames)
+    .map((eventName) => {
+      const success = pixelFiresGrouped.find((f) => f.eventName === eventName)?._count ?? 0;
+      const fail = failedMap.get(eventName) ?? 0;
+      return { eventName, success, fail, total: success + fail };
+    })
+    .sort((a, b) => b.total - a.total);
+
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-emerald-400" />
-          Relatórios
-        </h1>
-        <p className="text-sm text-zinc-500 mt-0.5">Últimos 30 dias</p>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Conversas (30d)", value: total30, icon: MessageSquare, color: "emerald" },
-          { label: "Conversas (7d)", value: total7, icon: MessageSquare, color: "blue" },
-          { label: "Rastreadas (30d)", value: tracked30, icon: Link2, color: "violet" },
-          { label: "Eventos Pixel (30d)", value: pixelFires30, icon: Zap, color: "amber" },
-        ].map(({ label, value, icon: Icon, color }) => {
-          const colors: Record<string, string> = {
-            emerald: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-            blue: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-            violet: "text-violet-400 bg-violet-500/10 border-violet-500/20",
-            amber: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-          };
-          return (
-            <Card key={label} className="bg-zinc-900/50 border-zinc-800 p-4">
-              <div className={`inline-flex p-2 rounded-lg border mb-3 ${colors[color]}`}>
-                <Icon className="w-4 h-4" />
-              </div>
-              <div className="text-2xl font-bold text-zinc-100">{value}</div>
-              <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Origem */}
-        <Card className="bg-zinc-900/50 border-zinc-800 p-5">
-          <h2 className="text-sm font-semibold text-zinc-300 mb-4">Conversas por Origem</h2>
-          {topOrigins.length === 0 ? (
-            <p className="text-zinc-600 text-sm">Sem dados</p>
-          ) : (
-            <div className="space-y-3">
-              {topOrigins.map((o) => {
-                const pct = total30 > 0 ? Math.round((o._count / total30) * 100) : 0;
-                return (
-                  <div key={o.origin} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-zinc-400">{ORIGIN_LABELS[o.origin] ?? o.origin}</span>
-                      <span className="text-zinc-300 font-medium">{o._count} <span className="text-zinc-600">({pct}%)</span></span>
-                    </div>
-                    <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-
-        {/* Eventos mais disparados */}
-        <Card className="bg-zinc-900/50 border-zinc-800 p-5">
-          <h2 className="text-sm font-semibold text-zinc-300 mb-4">Eventos Pixel Disparados</h2>
-          {topEvents.length === 0 ? (
-            <p className="text-zinc-600 text-sm">Nenhum evento disparado ainda</p>
-          ) : (
-            <div className="space-y-3">
-              {topEvents.map((e) => {
-                const max = topEvents[0]._count;
-                const pct = max > 0 ? Math.round((e._count / max) * 100) : 0;
-                return (
-                  <div key={e.eventName} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-zinc-400 flex items-center gap-1.5">
-                        <Zap className="w-3 h-3 text-violet-400" />
-                        {e.eventName}
-                      </span>
-                      <span className="text-zinc-300 font-medium">{e._count}</span>
-                    </div>
-                    <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-violet-500 rounded-full" style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Taxa de rastreio */}
-      <Card className="bg-zinc-900/50 border-zinc-800 p-5">
-        <h2 className="text-sm font-semibold text-zinc-300 mb-2">Taxa de Rastreio (30d)</h2>
-        <div className="flex items-end gap-3">
-          <span className="text-4xl font-bold text-zinc-100">
-            {total30 > 0 ? Math.round((tracked30 / total30) * 100) : 0}%
-          </span>
-          <span className="text-sm text-zinc-500 pb-1">{tracked30} de {total30} conversas rastreadas</span>
-        </div>
-        <div className="mt-3 h-2 bg-zinc-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-emerald-500 rounded-full transition-all"
-            style={{ width: `${total30 > 0 ? (tracked30 / total30) * 100 : 0}%` }}
-          />
-        </div>
-        <p className="text-xs text-zinc-600 mt-2">
-          Para aumentar a taxa, use Links Rastreáveis nos seus anúncios e materiais de marketing.
-        </p>
-      </Card>
-    </div>
+    <ReportsClient
+      rangeKey={rangeKey}
+      rangeLabel={rangeLabel}
+      customFrom={rawRange === "custom" ? (rawFrom ?? "") : ""}
+      customTo={rawRange === "custom" ? (rawTo ?? "") : ""}
+      kpis={{
+        totalConversations,
+        trackedConversations,
+        trackedRate,
+        salesCount,
+        revenue,
+      }}
+      dailySeries={dailySeries}
+      originStats={originStats}
+      funnelStages={funnelStages}
+      pixelEvents={pixelEvents}
+    />
   );
 }
