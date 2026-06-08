@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Building2, Wifi, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { Users, Building2, Wifi, Loader2, Trash2 } from "lucide-react";
 
 interface AdminUser {
   id: string;
@@ -35,8 +36,10 @@ export default function AdminPage() {
   const [data, setData] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"users" | "workspaces">("workspaces");
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
     fetch("/api/admin/stats")
       .then(async (res) => {
         const json = await res.json();
@@ -47,7 +50,45 @@ export default function AdminPage() {
         setData(json);
       })
       .catch(() => setError("Erro ao carregar dados"));
+  }
+
+  useEffect(() => {
+    load();
   }, []);
+
+  async function handleDeleteWorkspace(id: string) {
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/admin/workspaces/${id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error ?? "Não foi possível apagar o workspace");
+        return;
+      }
+      toast.success("Workspace apagado");
+      setConfirmId(null);
+      load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleDeleteUser(id: string) {
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error ?? "Não foi possível apagar o usuário");
+        return;
+      }
+      toast.success("Usuário apagado");
+      setConfirmId(null);
+      load();
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   if (error) {
     return <p className="text-sm text-red-400">{error}</p>;
@@ -120,6 +161,7 @@ export default function AdminPage() {
                 <th className="px-4 py-3 font-medium">Links</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Criado em</th>
+                <th className="px-4 py-3 font-medium text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -148,6 +190,32 @@ export default function AdminPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-zinc-500 text-xs">{fmtDate(w.createdAt)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {confirmId === w.id ? (
+                      <div className="inline-flex items-center gap-2 bg-red-950/40 border border-red-800/50 rounded-lg px-2.5 py-1.5">
+                        <span className="text-xs text-red-300">Apagar tudo?</span>
+                        <button
+                          onClick={() => handleDeleteWorkspace(w.id)}
+                          disabled={busyId === w.id}
+                          className="text-xs font-semibold text-red-400 hover:text-red-300"
+                        >
+                          {busyId === w.id ? "Apagando..." : "Sim"}
+                        </button>
+                        <span className="text-zinc-700">·</span>
+                        <button onClick={() => setConfirmId(null)} className="text-xs text-zinc-500 hover:text-zinc-300">
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmId(w.id)}
+                        className="text-zinc-600 hover:text-red-400 transition-colors"
+                        title="Apagar workspace e instância"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -162,6 +230,7 @@ export default function AdminPage() {
                 <th className="px-4 py-3 font-medium">E-mail</th>
                 <th className="px-4 py-3 font-medium">Workspaces</th>
                 <th className="px-4 py-3 font-medium">Cadastrado em</th>
+                <th className="px-4 py-3 font-medium text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -171,6 +240,32 @@ export default function AdminPage() {
                   <td className="px-4 py-3 text-zinc-400">{u.email}</td>
                   <td className="px-4 py-3 text-zinc-400">{u.workspaceCount}</td>
                   <td className="px-4 py-3 text-zinc-500 text-xs">{fmtDate(u.createdAt)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {confirmId === u.id ? (
+                      <div className="inline-flex items-center gap-2 bg-red-950/40 border border-red-800/50 rounded-lg px-2.5 py-1.5">
+                        <span className="text-xs text-red-300">Apagar conta?</span>
+                        <button
+                          onClick={() => handleDeleteUser(u.id)}
+                          disabled={busyId === u.id}
+                          className="text-xs font-semibold text-red-400 hover:text-red-300"
+                        >
+                          {busyId === u.id ? "Apagando..." : "Sim"}
+                        </button>
+                        <span className="text-zinc-700">·</span>
+                        <button onClick={() => setConfirmId(null)} className="text-xs text-zinc-500 hover:text-zinc-300">
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmId(u.id)}
+                        className="text-zinc-600 hover:text-red-400 transition-colors"
+                        title="Apagar usuário"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
