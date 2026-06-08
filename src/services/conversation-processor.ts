@@ -21,6 +21,21 @@ interface InboundMessage {
   adReferral?: AdReferral | null;
 }
 
+// Normaliza texto: minúsculo + sem acentos, pra comparar mensagens com flexibilidade
+function normalizeText(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+}
+
+// Deduz a origem (meta_ads, google_ads, organic) a partir dos UTMs configurados no link rastreável
+function deriveOriginFromUtm(utmSource?: string | null, utmMedium?: string | null): string {
+  const source = normalizeText(utmSource ?? "");
+  const medium = normalizeText(utmMedium ?? "");
+  if (/meta|facebook|fb|instagram|ig/.test(source)) return "meta_ads";
+  if (/google|adwords|gads|youtube/.test(source)) return "google_ads";
+  if (source || medium) return "organic";
+  return "untracked";
+}
+
 export async function processMessage(msg: InboundMessage) {
   console.log(`[processMessage] instanceName=${msg.instanceName} phone=${msg.phone} dir=${msg.direction} content="${msg.content.slice(0, 40)}"`);
 
@@ -33,6 +48,10 @@ export async function processMessage(msg: InboundMessage) {
         orderBy: { order: "asc" },
         select: { id: true, name: true, pixelEventName: true, triggerKeyword: true, purchaseValue: true },
       },
+      trackableLinks: {
+        where: { welcomeMessage: { not: null } },
+        select: { id: true, welcomeMessage: true, utmSource: true, utmMedium: true, utmCampaign: true, utmContent: true },
+      },
     },
   });
 
@@ -41,6 +60,15 @@ export async function processMessage(msg: InboundMessage) {
     return;
   }
   console.log(`[processMessage] workspace=${workspace.id} (${workspace.name})`);
+
+  // Tenta identificar se a mensagem veio através de um Link Rastreável: o WhatsApp
+  // pré-preenche o texto com a "mensagem de boas-vindas" cadastrada no link, então
+  // comparamos o conteúdo recebido com as mensagens de boas-vindas dos links do workspace.
+  const contentNorm = normalizeText(msg.content);
+  const matchedLink =
+    msg.direction === "inbound" && contentNorm.length > 4
+      ? workspace.trackableLinks.find((l) => l.welcomeMessage && normalizeText(l.welcomeMessage) === contentNorm)
+      : undefined;
 
   // Upsert conversation — cria para inbound E outbound
   // Para outbound, não usa pushName (seria seu próprio nome, não o do contato)
@@ -55,14 +83,26 @@ export async function processMessage(msg: InboundMessage) {
       lastMessageAt: msg.timestamp,
       // Se a primeira mensagem veio de um anúncio "Clique para o WhatsApp" (Meta Ads),
       // marca a origem e guarda os dados do criativo para exibição posterior
-      ...(msg.adReferral?.sourceId && {
-        origin: "meta_ads",
-        adSourceId: msg.adReferral.sourceId,
-        adTitle: msg.adReferral.title,
-        adBody: msg.adReferral.body,
-        adSourceUrl: msg.adReferral.sourceUrl,
-        adThumbnailUrl: msg.adReferral.thumbnailUrl,
-      }),
+      ...(msg.adReferral?.sourceId
+        ? {
+            origin: "meta_ads",
+            adSourceId: msg.adReferral.sourceId,
+            adTitle: msg.adReferral.title,
+            adBody: msg.adReferral.body,
+            adSourceUrl: msg.adReferral.sourceUrl,
+            adThumbnailUrl: msg.adReferral.thumbnailUrl,
+          }
+        // Senão, se identificamos que veio de um Link Rastreável, herda os UTMs
+        // configurados nele e deduz a origem (ex: meta_ads se o UTM source for meta/facebook/instagram)
+        : matchedLink
+          ? {
+              origin: deriveOriginFromUtm(matchedLink.utmSource, matchedLink.utmMedium),
+              trackableLinkId: matchedLink.id,
+              utmSource: matchedLink.utmSource,
+              utmMedium: matchedLink.utmMedium,
+              utmCampaign: matchedLink.utmCampaign,
+            }
+          : {}),
     },
     update: {
       lastMessageAt: msg.timestamp,
@@ -89,16 +129,11 @@ export async function processMessage(msg: InboundMessage) {
     if (code !== "P2002") console.error(`[processMessage] message.create error:`, e);
   }
 
-  // Normaliza texto: minúsculo + sem acentos para comparação flexível
-  const normalize = (s: string) =>
-    s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  const contentNorm = normalize(msg.content);
-
   // ── 1. Check funnel stage keywords ─────────────────────────────────
   for (const stage of workspace.funnelStages) {
     if (!stage.triggerKeyword) continue;
 
-    const keywords = stage.triggerKeyword.split(/[\n,]+/).map((k) => normalize(k.trim())).filter(Boolean);
+    const keywords = stage.triggerKeyword.split(/[\n,]+/).map((k) => normalizeText(k.trim())).filter(Boolean);
     const matches = keywords.some((kw) => contentNorm.includes(kw));
 
     if (!matches) continue;
@@ -154,7 +189,7 @@ export async function processMessage(msg: InboundMessage) {
     let shouldFire = false;
 
     if (config.triggerType === "keyword" && config.triggerValue) {
-      shouldFire = contentNorm.includes(normalize(config.triggerValue));
+      shouldFire = contentNorm.includes(normalizeText(config.triggerValue));
     } else if (config.triggerType === "first_message") {
       const msgCount = await prisma.message.count({ where: { conversationId: conversation.id } });
       shouldFire = msgCount === 1;
