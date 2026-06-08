@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import {
   Link2, Plus, Copy, Trash2, MousePointerClick,
   X, ExternalLink, Clock, MessageSquare, Megaphone,
-  ChevronDown, ChevronUp, Pencil, Users,
+  ChevronDown, ChevronUp, Pencil, Users, Info,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -113,6 +113,15 @@ function LinkForm({
             rows={3}
             className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-blue-500 resize-none"
           />
+          <div className="flex items-start gap-2 bg-blue-500/5 border border-blue-500/15 rounded-lg px-3 py-2.5">
+            <Info className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Essa é a mensagem que chega pronta no WhatsApp quando o lead clica no link.
+              <span className="text-zinc-300"> Use um texto único</span> — é com base nele que o sistema
+              reconhece automaticamente que aquele lead entrou por este link e atribui a origem certa
+              (ex: Meta Ads) à conversa.
+            </p>
+          </div>
         </section>
 
         <Separator className="bg-zinc-800" />
@@ -138,6 +147,20 @@ function LinkForm({
                 />
               </div>
             ))}
+          </div>
+          <div className="flex items-start gap-2 bg-blue-500/5 border border-blue-500/15 rounded-lg px-3 py-2.5">
+            <Info className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-zinc-400 leading-relaxed space-y-1">
+              <p>
+                O <span className="text-zinc-300">UTM Source</span> é usado para identificar automaticamente
+                de onde veio o lead. Preencha com:
+              </p>
+              <ul className="space-y-0.5 pl-0.5">
+                <li><Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px] mr-1.5">facebook / instagram / meta</Badge> para campanhas do Meta Ads</li>
+                <li><Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] mr-1.5">google</Badge> para campanhas do Google Ads</li>
+              </ul>
+              <p>O sistema usa esse valor para marcar a conversa com a origem correta nos relatórios e no dashboard.</p>
+            </div>
           </div>
         </section>
 
