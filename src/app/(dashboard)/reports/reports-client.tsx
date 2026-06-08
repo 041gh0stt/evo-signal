@@ -89,10 +89,18 @@ export function ReportsClient({
     if (!exportRef.current || exporting) return;
     setExporting(true);
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import("html2canvas"),
+      // Usamos o fork "html2canvas-pro" porque o Tailwind v4 gera cores em oklch(),
+      // e o html2canvas original não consegue interpretar essa função de cor
+      // (falha silenciosamente, sem baixar nada).
+      const [html2canvasMod, jsPDFMod] = await Promise.all([
+        import("html2canvas-pro"),
         import("jspdf"),
       ]);
+      type Html2CanvasFn = (el: HTMLElement, opts?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
+      const html2canvas = ((html2canvasMod as unknown as { default?: Html2CanvasFn }).default ??
+        (html2canvasMod as unknown as Html2CanvasFn));
+      const jsPDF = ((jsPDFMod as unknown as { jsPDF?: typeof import("jspdf").jsPDF }).jsPDF ??
+        (jsPDFMod as unknown as { default: typeof import("jspdf").jsPDF }).default);
       const node = exportRef.current;
       const canvas = await html2canvas(node, {
         backgroundColor: "#09090b",
@@ -107,6 +115,7 @@ export function ReportsClient({
       pdf.save(`relatorio-evosignal-${rangeKey}.pdf`);
     } catch (err) {
       console.error("Falha ao exportar relatório em PDF:", err);
+      alert("Não foi possível gerar o PDF do relatório. Tente novamente em instantes.");
     } finally {
       setExporting(false);
     }
