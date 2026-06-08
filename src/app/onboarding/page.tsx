@@ -35,7 +35,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center mb-4">
-            <Image src="/pingo-logo.png" alt="Pingo" width={1140} height={441} priority className="h-12 w-auto" />
+            <Image src="/pingo-logo.png" alt="Pingo" width={1140} height={441} priority className="h-16 w-auto" />
           </div>
           <h1 className="text-xl font-bold text-zinc-100">Crie seu workspace</h1>
           <p className="text-sm text-zinc-500">Normalmente o nome da sua empresa ou cliente</p>

@@ -35,7 +35,7 @@ export function Sidebar() {
           width={1140}
           height={441}
           priority
-          className="h-9 w-auto"
+          className="h-12 w-auto"
         />
       </div>
 

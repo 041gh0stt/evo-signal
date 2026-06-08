@@ -48,7 +48,7 @@ export default function RegisterPage() {
     <div className="space-y-6">
       <div className="text-center space-y-2">
         <div className="flex items-center justify-center mb-4">
-          <Image src="/pingo-logo.png" alt="Pingo" width={1140} height={441} priority className="h-12 w-auto" />
+          <Image src="/pingo-logo.png" alt="Pingo" width={1140} height={441} priority className="h-16 w-auto" />
         </div>
         <h1 className="text-xl font-bold text-zinc-100">Criar conta</h1>
         <p className="text-sm text-zinc-500">Comece a rastrear suas conversas hoje</p>
