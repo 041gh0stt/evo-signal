@@ -56,7 +56,7 @@ export default async function DashboardPage({
   const wid = workspace.id;
   const dateFilter = { gte: since, ...(until ? { lt: until } : {}) };
 
-  const [totalConversations, trackedConversations, pixelFires, originBreakdown, recentConversations, funnelStages] =
+  const [totalConversations, trackedConversations, pixelFires, originBreakdown, recentConversations, funnelStages, triggerStagesCount, saleStagesCount, trackableLinksCount] =
     await Promise.all([
       prisma.conversation.count({ where: { workspaceId: wid, createdAt: dateFilter } }),
       prisma.conversation.count({
@@ -81,7 +81,17 @@ export default async function DashboardPage({
         orderBy: { order: "asc" },
         include: { _count: { select: { conversations: true } } },
       }),
+      prisma.funnelStage.count({ where: { workspaceId: wid, triggerKeyword: { not: null } } }),
+      prisma.funnelStage.count({ where: { workspaceId: wid, isSale: true, pixelEventName: { not: null } } }),
+      prisma.trackableLink.count({ where: { workspaceId: wid } }),
     ]);
+
+  const onboarding = {
+    whatsappConnected: workspace.whatsappConnected,
+    hasTriggerKeyword: triggerStagesCount > 0,
+    hasSaleStage: saleStagesCount > 0,
+    hasTrackableLink: trackableLinksCount > 0,
+  };
 
   const stats = {
     totalConversations,
@@ -96,6 +106,7 @@ export default async function DashboardPage({
     <DashboardClient
       workspace={workspace}
       stats={stats}
+      onboarding={onboarding}
       recentConversations={recentConversations}
       rangeKey={rangeKey}
       rangeLabel={rangeLabel}

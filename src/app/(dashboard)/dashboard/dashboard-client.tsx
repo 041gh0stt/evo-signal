@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import {
   MessageSquare, Zap, TrendingUp, Link2,
   Wifi, WifiOff, ArrowUpRight, Clock, ChevronDown,
+  Flame, Check, X, ChevronRight,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -56,6 +57,12 @@ interface Props {
     pixelFires: number;
     originBreakdown: { origin: string; _count: number }[];
   };
+  onboarding: {
+    whatsappConnected: boolean;
+    hasTriggerKeyword: boolean;
+    hasSaleStage: boolean;
+    hasTrackableLink: boolean;
+  };
   rangeKey: string;
   rangeLabel: string;
   customFrom?: string;
@@ -72,11 +79,41 @@ interface Props {
   funnelStages: FunnelStage[];
 }
 
-export function DashboardClient({ workspace, stats, recentConversations, funnelStages, rangeKey, rangeLabel, customFrom = "", customTo = "" }: Props) {
+export function DashboardClient({ workspace, stats, onboarding, recentConversations, funnelStages, rangeKey, rangeLabel, customFrom = "", customTo = "" }: Props) {
   const router = useRouter();
   const [rangeOpen, setRangeOpen] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [customRange, setCustomRange] = useState<DateRange>({ from: customFrom, to: customTo });
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+
+  const onboardingSteps = [
+    {
+      key: "whatsapp",
+      label: "Conectar no WhatsApp",
+      done: onboarding.whatsappConnected,
+      href: "/settings",
+    },
+    {
+      key: "trigger",
+      label: "Configurar frase gatilho da Jornada",
+      done: onboarding.hasTriggerKeyword,
+      href: "/funil",
+    },
+    {
+      key: "sale",
+      label: "Identificar a primeira venda",
+      done: onboarding.hasSaleStage,
+      href: "/funil",
+    },
+    {
+      key: "tracking",
+      label: "Configurar rastreio de campanhas",
+      done: onboarding.hasTrackableLink,
+      href: "/links",
+    },
+  ];
+  const allOnboardingDone = onboardingSteps.every((s) => s.done);
+  const showOnboarding = !onboardingDismissed && !allOnboardingDone;
 
   function selectRange(key: string) {
     if (key === "custom") {
@@ -171,6 +208,47 @@ export function DashboardClient({ workspace, stats, recentConversations, funnelS
         )}
       </div>
 
+      {/* Onboarding inicial */}
+      {showOnboarding && (
+        <Card className="bg-blue-500/5 border-blue-500/20 p-5">
+          <div className="flex items-center justify-between pb-3 mb-1 border-b border-blue-500/15">
+            <h2 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
+              <Flame className="w-4 h-4 text-orange-400" /> Configurações iniciais
+            </h2>
+            <button
+              onClick={() => setOnboardingDismissed(true)}
+              className="text-zinc-600 hover:text-zinc-300 transition-colors p-1"
+              title="Ocultar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="divide-y divide-zinc-800/60">
+            {onboardingSteps.map((step) => (
+              <Link
+                key={step.key}
+                href={step.href}
+                className="flex items-center gap-3 py-2.5 group/step"
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                  step.done ? "bg-emerald-500/20 text-emerald-400" : "bg-zinc-800 text-zinc-600 border border-zinc-700"
+                }`}>
+                  {step.done && <Check className="w-3 h-3" />}
+                </span>
+                <span className={`text-sm transition-colors ${
+                  step.done ? "text-zinc-500 line-through" : "text-zinc-200 group-hover/step:text-emerald-400"
+                }`}>
+                  {step.label}
+                </span>
+                {!step.done && (
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600 ml-auto group-hover/step:text-emerald-400 group-hover/step:translate-x-0.5 transition-all" />
+                )}
+              </Link>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KPICard
@@ -244,7 +322,7 @@ export function DashboardClient({ workspace, stats, recentConversations, funnelS
         <Card className="lg:col-span-2 bg-zinc-900/50 border-zinc-800 p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-zinc-300">Jornada de Compra</h2>
-            <Link href="/funnel" className="text-xs text-zinc-500 hover:text-emerald-400 transition-colors flex items-center gap-1">
+            <Link href="/funil" className="text-xs text-zinc-500 hover:text-emerald-400 transition-colors flex items-center gap-1">
               Ver <ArrowUpRight className="w-3 h-3" />
             </Link>
           </div>
@@ -253,7 +331,7 @@ export function DashboardClient({ workspace, stats, recentConversations, funnelS
             <div className="h-44 flex flex-col items-center justify-center gap-2 text-zinc-600">
               <TrendingUp className="w-8 h-8 opacity-30" />
               <p className="text-sm text-center">Nenhuma etapa configurada</p>
-              <Link href="/funnel" className="text-xs text-emerald-400 hover:underline">Configurar jornada →</Link>
+              <Link href="/funil" className="text-xs text-emerald-400 hover:underline">Configurar jornada →</Link>
             </div>
           ) : (
             <div className="space-y-2">

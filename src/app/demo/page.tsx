@@ -88,6 +88,7 @@ export default function DemoPage() {
           <DashboardClient
             workspace={mockWorkspace}
             stats={mockStats}
+            onboarding={{ whatsappConnected: true, hasTriggerKeyword: true, hasSaleStage: true, hasTrackableLink: true }}
             recentConversations={mockConversations}
             funnelStages={[]}
             rangeKey="7d"
