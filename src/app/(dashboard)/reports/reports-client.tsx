@@ -112,7 +112,7 @@ export function ReportsClient({
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: [pdfWidth, pdfHeight] });
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`relatorio-evosignal-${rangeKey}.pdf`);
+      pdf.save(`relatorio-pingo-${rangeKey}.pdf`);
     } catch (err) {
       console.error("Falha ao exportar relatório em PDF:", err);
       alert("Não foi possível gerar o PDF do relatório. Tente novamente em instantes.");

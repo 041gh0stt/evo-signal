@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { auth } from "./auth";
 import { prisma } from "./prisma";
 
-export const ACTIVE_WORKSPACE_COOKIE = "evo-active-workspace";
+export const ACTIVE_WORKSPACE_COOKIE = "pingo-active-workspace";
 
 /**
  * Returns the active workspace for the current user.
