@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ChevronDown, Wifi, WifiOff, Plus, Settings2, Check
+  ChevronDown, Wifi, WifiOff, Plus, Settings2, Check, Menu
 } from "lucide-react";
 import { CreateWorkspaceModal } from "@/components/onboarding/CreateWorkspaceModal";
 
@@ -18,9 +18,10 @@ interface Workspace {
 interface HeaderProps {
   activeWorkspace: Workspace;
   allWorkspaces: Workspace[];
+  onMenuClick?: () => void;
 }
 
-export function Header({ activeWorkspace, allWorkspaces }: HeaderProps) {
+export function Header({ activeWorkspace, allWorkspaces, onMenuClick }: HeaderProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -56,7 +57,16 @@ export function Header({ activeWorkspace, allWorkspaces }: HeaderProps) {
         onCreated={handleOnboardingCreated}
       />
     )}
-    <header className="h-14 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-end px-6 shrink-0 relative z-20">
+    <header className="h-14 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between lg:justify-end px-4 lg:px-6 shrink-0 relative z-20 gap-2">
+      {/* Botão de menu — só aparece em telas pequenas */}
+      <button
+        onClick={onMenuClick}
+        className="lg:hidden p-2 -ml-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors"
+        aria-label="Abrir menu"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
       {/* Workspace switcher */}
       <div className="relative">
         <button
@@ -75,7 +85,7 @@ export function Header({ activeWorkspace, allWorkspaces }: HeaderProps) {
             {initials}
           </div>
 
-          <div className="text-left">
+          <div className="text-left hidden sm:block">
             <p className="text-sm font-semibold text-zinc-100 leading-none">{activeWorkspace.name}</p>
             <p className="text-xs text-zinc-500 leading-none mt-0.5">
               {activeWorkspace.whatsappConnected

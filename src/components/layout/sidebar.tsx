@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, Link2,
   Settings, TrendingUp, LogOut, GitBranch,
-  Users, FileText,
+  Users, FileText, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -22,13 +22,19 @@ const navItems = [
   { href: "/settings", icon: Settings, label: "Configurações" },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  /** Em telas pequenas, controla se o menu lateral está aberto como overlay */
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
 
-  return (
-    <aside className="w-60 flex flex-col border-r border-zinc-800 bg-zinc-900/50 shrink-0">
+  const content = (
+    <>
       {/* Logo */}
-      <div className="flex items-center px-5 py-5 border-b border-zinc-800">
+      <div className="flex items-center justify-between px-5 py-5 border-b border-zinc-800">
         <Image
           src="/pingo-logo.png"
           alt="Pingo"
@@ -37,6 +43,14 @@ export function Sidebar() {
           priority
           className="h-12 w-auto"
         />
+        {/* Botão de fechar — só aparece no overlay mobile */}
+        <button
+          onClick={onClose}
+          className="lg:hidden p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 transition-colors"
+          aria-label="Fechar menu"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Nav */}
@@ -45,6 +59,7 @@ export function Sidebar() {
           <Link
             key={href}
             href={href}
+            onClick={onClose}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
               pathname === href || pathname.startsWith(href + "/")
@@ -68,6 +83,25 @@ export function Sidebar() {
           Sair
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Sidebar fixa — visível a partir de telas grandes (lg) */}
+      <aside className="hidden lg:flex w-60 flex-col border-r border-zinc-800 bg-zinc-900/50 shrink-0">
+        {content}
+      </aside>
+
+      {/* Overlay mobile — abre por cima do conteúdo em telas pequenas */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-40 flex">
+          <div className="fixed inset-0 bg-black/60" onClick={onClose} />
+          <aside className="relative w-64 max-w-[80vw] flex flex-col border-r border-zinc-800 bg-zinc-900 shadow-2xl animate-in slide-in-from-left duration-200">
+            {content}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

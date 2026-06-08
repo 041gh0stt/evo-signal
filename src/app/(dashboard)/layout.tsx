@@ -1,5 +1,4 @@
-import { Sidebar } from "@/components/layout/sidebar";
-import { Header } from "@/components/layout/header";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { auth } from "@/lib/auth";
 import { getActiveWorkspace, getUserWorkspaces } from "@/lib/workspace";
 import { redirect } from "next/navigation";
@@ -23,14 +22,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header activeWorkspace={activeWithRole} allWorkspaces={allWorkspaces} />
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
-      </div>
-    </div>
+    <DashboardShell activeWorkspace={activeWithRole} allWorkspaces={allWorkspaces}>
+      {children}
+    </DashboardShell>
   );
 }
