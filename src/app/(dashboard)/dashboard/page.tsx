@@ -91,6 +91,7 @@ export default async function DashboardPage({
     hasTriggerKeyword: triggerStagesCount > 0,
     hasSaleStage: saleStagesCount > 0,
     hasTrackableLink: trackableLinksCount > 0,
+    hasMetaAdAccount: !!workspace.metaUserToken && !!workspace.metaAdAccountId,
   };
 
   const stats = {

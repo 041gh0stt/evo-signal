@@ -62,6 +62,7 @@ interface Props {
     hasTriggerKeyword: boolean;
     hasSaleStage: boolean;
     hasTrackableLink: boolean;
+    hasMetaAdAccount: boolean;
   };
   rangeKey: string;
   rangeLabel: string;
@@ -110,6 +111,12 @@ export function DashboardClient({ workspace, stats, onboarding, recentConversati
       label: "Configurar rastreio de campanhas",
       done: onboarding.hasTrackableLink,
       href: "/links",
+    },
+    {
+      key: "metaAds",
+      label: "Conectar conta de anúncios (Meta Ads)",
+      done: onboarding.hasMetaAdAccount,
+      href: "/settings",
     },
   ];
   const allOnboardingDone = onboardingSteps.every((s) => s.done);
