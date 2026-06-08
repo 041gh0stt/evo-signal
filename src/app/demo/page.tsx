@@ -9,10 +9,10 @@ const mockStats = {
   trackedRate: 61,
   pixelFires: 187,
   originBreakdown: [
-    { origin: "meta_ads", _count: 214 },
-    { origin: "google_ads", _count: 0 },
-    { origin: "organic", _count: 0 },
-    { origin: "untracked", _count: 134 },
+    { origin: "meta_ads",   _count: 142 },
+    { origin: "google_ads", _count: 48  },
+    { origin: "organic",    _count: 24  },
+    { origin: "untracked",  _count: 134 },
   ],
 };
 
@@ -99,7 +99,12 @@ export default function DemoPage() {
             stats={mockStats}
             onboarding={{ whatsappConnected: true, hasTriggerKeyword: true, hasSaleStage: true, hasTrackableLink: true, hasMetaAdAccount: true }}
             recentConversations={mockConversations}
-            funnelStages={[]}
+            funnelStages={[
+              { id: "s1", name: "Novo Lead",         color: "#3b82f6", order: 0, isSale: false, count: 87 },
+              { id: "s2", name: "Em Negociação",      color: "#8b5cf6", order: 1, isSale: false, count: 54 },
+              { id: "s3", name: "Proposta Enviada",   color: "#f59e0b", order: 2, isSale: false, count: 31 },
+              { id: "s4", name: "Fechado ✓",          color: "#10b981", order: 3, isSale: true,  count: 18 },
+            ]}
             rangeKey="7d"
             rangeLabel="Últimos 7 dias"
           />
