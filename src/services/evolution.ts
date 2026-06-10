@@ -85,6 +85,8 @@ export async function deleteInstance(instanceName: string) {
 }
 
 export async function setWebhook(instanceName: string, webhookUrl: string, instanceApiKey?: string) {
+  const webhookSecret = process.env.EVOLUTION_WEBHOOK_SECRET;
+
   const { data } = await getClient(instanceApiKey).post(
     `/webhook/set/${instanceName}`,
     {
@@ -94,6 +96,10 @@ export async function setWebhook(instanceName: string, webhookUrl: string, insta
         webhookByEvents: false,
         webhookBase64: false,
         events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "MESSAGES_UPDATE"],
+        // Envia o secret como header em cada requisição ao Pingo
+        ...(webhookSecret && {
+          headers: { apikey: webhookSecret },
+        }),
       },
     }
   );
