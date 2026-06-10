@@ -60,29 +60,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Apenas o dono do workspace pode convidar membros" }, { status: 403 });
   }
 
-  const { email, role } = await req.json();
+  const { email, role, sendEmail: shouldSendEmail = true } = await req.json();
   if (!email || typeof email !== "string" || !email.includes("@")) {
     return NextResponse.json({ error: "E-mail inválido" }, { status: 400 });
   }
   const finalRole = role === "owner" ? "owner" : "member";
 
-  // Já é membro?
-  const existingUser = await prisma.user.findUnique({ where: { email } });
-  if (existingUser) {
-    const alreadyMember = await prisma.workspaceMember.findUnique({
-      where: { workspaceId_userId: { workspaceId: workspace.id, userId: existingUser.id } },
-    });
-    if (alreadyMember) {
-      return NextResponse.json({ error: "Essa pessoa já faz parte do workspace" }, { status: 409 });
-    }
-  }
+  // Só verifica duplicidade de membro/convite quando o e-mail é real (não o placeholder gerado para links)
+  const isPlaceholder = email.startsWith("convite+") && email.endsWith("@pingo.link");
 
-  // Já existe convite pendente para esse e-mail nesse workspace?
-  const existingInvite = await prisma.workspaceInvite.findFirst({
-    where: { workspaceId: workspace.id, email, acceptedAt: null, expiresAt: { gt: new Date() } },
-  });
-  if (existingInvite) {
-    return NextResponse.json({ error: "Já existe um convite pendente para esse e-mail" }, { status: 409 });
+  if (!isPlaceholder) {
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      const alreadyMember = await prisma.workspaceMember.findUnique({
+        where: { workspaceId_userId: { workspaceId: workspace.id, userId: existingUser.id } },
+      });
+      if (alreadyMember) {
+        return NextResponse.json({ error: "Essa pessoa já faz parte do workspace" }, { status: 409 });
+      }
+    }
+
+    const existingInvite = await prisma.workspaceInvite.findFirst({
+      where: { workspaceId: workspace.id, email, acceptedAt: null, expiresAt: { gt: new Date() } },
+    });
+    if (existingInvite) {
+      return NextResponse.json({ error: "Já existe um convite pendente para esse e-mail" }, { status: 409 });
+    }
   }
 
   const token = crypto.randomBytes(24).toString("hex");
@@ -95,11 +98,14 @@ export async function POST(req: NextRequest) {
   const baseUrl = process.env.NEXTAUTH_URL ?? req.nextUrl.origin;
   const inviteUrl = `${baseUrl}/convite/${token}`;
 
-  await sendEmail({
-    to: email,
-    subject: `Convite para o workspace "${workspace.name}" no Pingo`,
-    html: workspaceInviteEmailHtml({ workspaceName: workspace.name, inviteUrl }),
-  });
+  // Envia e-mail só quando solicitado e quando não é e-mail placeholder de link
+  if (shouldSendEmail && !isPlaceholder) {
+    await sendEmail({
+      to: email,
+      subject: `Convite para o workspace "${workspace.name}" no Pingo`,
+      html: workspaceInviteEmailHtml({ workspaceName: workspace.name, inviteUrl }),
+    });
+  }
 
   return NextResponse.json({
     id: invite.id,

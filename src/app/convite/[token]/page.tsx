@@ -116,17 +116,26 @@ export default function ConvitePage() {
                   </p>
                   <p className="text-base font-semibold text-zinc-100">{invite.workspaceName}</p>
                   <p className="text-xs text-zinc-500">
-                    Convite enviado para <span className="text-zinc-400">{invite.email}</span> · papel{" "}
-                    <span className="text-zinc-400">{invite.role === "owner" ? "dono" : "membro"}</span>
+                    {!(invite.email.startsWith("convite+") && invite.email.endsWith("@pingo.link")) && (
+                      <>Convite enviado para <span className="text-zinc-400">{invite.email}</span> · </>
+                    )}
+                    Papel: <span className="text-zinc-400">{invite.role === "owner" ? "dono" : "membro"}</span>
                   </p>
                 </div>
               </div>
 
               {!loggedIn ? (
                 <div className="space-y-2">
-                  <p className="text-xs text-zinc-500">
-                    Você precisa entrar ou criar uma conta com o e-mail <span className="text-zinc-400">{invite.email}</span> para aceitar este convite.
-                  </p>
+                  {!(invite.email.startsWith("convite+") && invite.email.endsWith("@pingo.link")) && (
+                    <p className="text-xs text-zinc-500">
+                      Você precisa entrar ou criar uma conta com o e-mail <span className="text-zinc-400">{invite.email}</span> para aceitar este convite.
+                    </p>
+                  )}
+                  {(invite.email.startsWith("convite+") && invite.email.endsWith("@pingo.link")) && (
+                    <p className="text-xs text-zinc-500">
+                      Entre ou crie uma conta para aceitar o convite.
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <Link href={`/login?redirect=${redirectParam}`} className="flex-1">
                       <Button variant="outline" className="w-full border-zinc-700 text-zinc-200 hover:bg-zinc-800">

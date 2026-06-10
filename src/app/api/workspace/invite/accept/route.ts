@@ -23,7 +23,9 @@ export async function POST(req: NextRequest) {
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (!user) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
 
-  if (user.email && user.email.toLowerCase() !== invite.email.toLowerCase()) {
+  // Convites com e-mail placeholder (gerados via "gerar link") aceitam qualquer usuário logado
+  const isPlaceholder = invite.email.startsWith("convite+") && invite.email.endsWith("@pingo.link");
+  if (!isPlaceholder && user.email && user.email.toLowerCase() !== invite.email.toLowerCase()) {
     return NextResponse.json(
       { error: `Esse convite foi enviado para ${invite.email}. Faça login com essa conta para aceitá-lo.` },
       { status: 403 }

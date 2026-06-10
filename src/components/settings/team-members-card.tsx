@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Users, UserPlus, Copy, Trash2, X, Loader2, Crown } from "lucide-react";
+import { Users, UserPlus, Copy, Trash2, X, Loader2, Crown, Mail, Link2, CheckCircle2 } from "lucide-react";
 
 interface Member {
   id: string;
@@ -32,9 +32,11 @@ export function TeamMembersCard() {
   const [role, setRole] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [inviteMode, setInviteMode] = useState<"email" | "link">("email");
   const [email, setEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [inviting, setInviting] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -59,20 +61,33 @@ export function TeamMembersCard() {
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (inviteMode === "email" && !email.trim()) return;
+    // Para "link", o e-mail é opcional — se vazio, usa placeholder que aceita qualquer conta
     setInviting(true);
+    setGeneratedLink(null);
     try {
       const res = await fetch("/api/workspace/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), role: inviteRole }),
+        body: JSON.stringify({
+          email: email.trim() || `convite+${Date.now()}@pingo.link`,
+          role: inviteRole,
+          sendEmail: inviteMode === "email",
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "Não foi possível enviar o convite");
+        toast.error(data.error ?? "Não foi possível gerar o convite");
         return;
       }
-      toast.success("Convite enviado!");
+      if (inviteMode === "link") {
+        const link = data.inviteUrl ?? `${window.location.origin}/convite/${data.token}`;
+        setGeneratedLink(link);
+        navigator.clipboard.writeText(link).catch(() => {});
+        toast.success("Link gerado e copiado!");
+      } else {
+        toast.success("Convite enviado por e-mail!");
+      }
       setEmail("");
       setInviteRole("member");
       await load();
@@ -205,30 +220,92 @@ export function TeamMembersCard() {
           )}
 
           {isOwner && (
-            <form onSubmit={handleInvite} className="space-y-2 pt-1">
-              <Label className="text-zinc-300 text-xs">Convidar por e-mail</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  type="email"
-                  placeholder="pessoa@email.com"
-                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600"
-                />
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm rounded-md px-2 focus:outline-none focus:border-emerald-500"
+            <form onSubmit={handleInvite} className="space-y-3 pt-1 border-t border-zinc-800">
+              {/* Mode toggle */}
+              <div className="flex items-center gap-1 p-1 bg-zinc-800/60 rounded-lg w-fit mt-3">
+                <button
+                  type="button"
+                  onClick={() => { setInviteMode("email"); setGeneratedLink(null); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${inviteMode === "email" ? "bg-zinc-700 text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
                 >
-                  <option value="member">Membro</option>
-                  <option value="owner">Dono</option>
-                </select>
-                <Button type="submit" disabled={inviting || !email.trim()} className="bg-emerald-500 hover:bg-emerald-400 text-zinc-900 font-semibold gap-1.5 shrink-0">
-                  <UserPlus className="w-4 h-4" />
-                  {inviting ? "Enviando..." : "Convidar"}
-                </Button>
+                  <Mail className="w-3.5 h-3.5" /> Enviar por e-mail
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setInviteMode("link"); setGeneratedLink(null); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${inviteMode === "link" ? "bg-zinc-700 text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
+                >
+                  <Link2 className="w-3.5 h-3.5" /> Gerar link
+                </button>
               </div>
-              <p className="text-xs text-zinc-600">A pessoa receberá um e-mail com um link para entrar no workspace.</p>
+
+              {inviteMode === "email" ? (
+                <>
+                  <div className="flex gap-2">
+                    <Input
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      type="email"
+                      required
+                      placeholder="pessoa@email.com"
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600"
+                    />
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm rounded-md px-2 focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="member">Membro</option>
+                      <option value="owner">Dono</option>
+                    </select>
+                    <Button type="submit" disabled={inviting || !email.trim()} className="bg-emerald-500 hover:bg-emerald-400 text-zinc-900 font-semibold gap-1.5 shrink-0">
+                      <Mail className="w-4 h-4" />
+                      {inviting ? "Enviando..." : "Enviar convite"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-zinc-600">A pessoa recebe um e-mail com o link para entrar no workspace.</p>
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <Input
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      type="email"
+                      placeholder="E-mail (opcional — para restringir quem pode aceitar)"
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600"
+                    />
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-sm rounded-md px-2 focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="member">Membro</option>
+                      <option value="owner">Dono</option>
+                    </select>
+                    <Button type="submit" disabled={inviting} className="bg-emerald-500 hover:bg-emerald-400 text-zinc-900 font-semibold gap-1.5 shrink-0">
+                      <Link2 className="w-4 h-4" />
+                      {inviting ? "Gerando..." : "Gerar link"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-zinc-600">Gera um link para você compartilhar onde quiser (WhatsApp, Slack, etc.). Válido por 7 dias.</p>
+
+                  {generatedLink && (
+                    <div className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-3 py-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <code className="text-xs text-emerald-300 flex-1 truncate">{generatedLink}</code>
+                      <button
+                        type="button"
+                        onClick={() => { navigator.clipboard.writeText(generatedLink); toast.success("Link copiado!"); }}
+                        className="text-emerald-500 hover:text-emerald-300 transition-colors shrink-0"
+                        title="Copiar link"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </form>
           )}
         </>
