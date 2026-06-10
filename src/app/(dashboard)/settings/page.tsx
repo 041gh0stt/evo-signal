@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Trash2, AlertTriangle, Link2, Unlink, ChevronDown, Check } from "lucide-react";
+import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Trash2, AlertTriangle, Link2, Unlink, ChevronDown, Check, Webhook } from "lucide-react";
 import Image from "next/image";
 import { TeamMembersCard } from "@/components/settings/team-members-card";
 
@@ -151,6 +151,24 @@ export default function SettingsPage() {
   const [savingName, setSavingName] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [configuringWebhook, setConfiguringWebhook] = useState(false);
+
+  async function handleConfigureWebhook() {
+    setConfiguringWebhook(true);
+    try {
+      const res = await fetch("/api/workspace/whatsapp/configure-webhook", { method: "POST" });
+      if (res.ok) {
+        toast.success("Webhook reconfigurado com sucesso!");
+      } else {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d.error ?? "Erro ao reconfigurar webhook");
+      }
+    } catch {
+      toast.error("Falha ao reconfigurar webhook");
+    } finally {
+      setConfiguringWebhook(false);
+    }
+  }
 
   async function handleConnectWhatsApp() {
     setConnecting(true);
@@ -298,9 +316,21 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium text-zinc-200">{workspace.whatsappPhone ?? "—"}</p>
               </div>
               <Button variant="outline" size="sm" className="border-red-800 text-red-400 hover:bg-red-900/20" onClick={handleDisconnect}>
-                  Desconectar
-                </Button>
-              </div>
+                Desconectar
+              </Button>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleConfigureWebhook}
+              disabled={configuringWebhook}
+              className="border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 gap-1.5 w-full"
+            >
+              {configuringWebhook
+                ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                : <Webhook className="w-3.5 h-3.5" />}
+              {configuringWebhook ? "Reconfigurando..." : "Reconfigurar Webhook"}
+            </Button>
           </div>
         ) : qrCode ? (
           <div className="flex flex-col items-center gap-3 py-2">
