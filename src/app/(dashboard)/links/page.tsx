@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import {
   Link2, Plus, Copy, Trash2, MousePointerClick,
   X, ExternalLink, Clock, MessageSquare, Megaphone,
-  ChevronDown, ChevronUp, Pencil, Users, Info,
+  ChevronDown, ChevronUp, Pencil, Users, Info, Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -32,6 +32,12 @@ interface TrackableLink {
   redirectDelay: number;
   clicks: number;
   createdAt: string;
+}
+
+interface MetaCampaign {
+  id: string;
+  name: string;
+  status: string;
 }
 
 interface LinkConversation {
@@ -64,14 +70,17 @@ function LinkForm({
   onCancel,
   saving,
   isEdit,
+  campaigns = [],
 }: {
   initial: FormState;
   onSave: (form: FormState) => void;
   onCancel: () => void;
   saving: boolean;
   isEdit?: boolean;
+  campaigns?: MetaCampaign[];
 }) {
   const [form, setForm] = useState(initial);
+  const [campaignOpen, setCampaignOpen] = useState(false);
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
   const set = (updates: Partial<FormState>) => setForm((f) => ({ ...f, ...updates }));
   const previewSlug = form.name
@@ -134,7 +143,6 @@ function LinkForm({
             {[
               { key: "utmSource", label: "UTM Source", placeholder: "facebook, google..." },
               { key: "utmMedium", label: "UTM Medium", placeholder: "cpc, organic..." },
-              { key: "utmCampaign", label: "UTM Campaign", placeholder: "nome-da-campanha" },
               { key: "utmContent", label: "UTM Content", placeholder: "variacao-a, banner-1..." },
             ].map(({ key, label, placeholder }) => (
               <div key={key} className="space-y-1.5">
@@ -147,6 +155,70 @@ function LinkForm({
                 />
               </div>
             ))}
+
+            {/* UTM Campaign — dropdown se Meta Ads conectado, input manual caso contrário */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-zinc-400 flex items-center gap-1.5">
+                UTM Campaign
+                {campaigns.length > 0 && (
+                  <span className="text-[10px] text-blue-400 flex items-center gap-0.5 font-normal">
+                    <Zap className="w-2.5 h-2.5" /> Meta Ads
+                  </span>
+                )}
+              </Label>
+              {campaigns.length > 0 ? (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setCampaignOpen((v) => !v)}
+                    className="w-full flex items-center justify-between gap-2 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-left hover:border-zinc-600 transition-colors"
+                  >
+                    <span className={form.utmCampaign ? "text-zinc-100 truncate" : "text-zinc-500"}>
+                      {form.utmCampaign || "Selecionar campanha..."}
+                    </span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 shrink-0 transition-transform ${campaignOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {campaignOpen && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setCampaignOpen(false)} />
+                      <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => { set({ utmCampaign: "" }); setCampaignOpen(false); }}
+                          className="w-full text-left px-3 py-2 text-xs text-zinc-500 hover:bg-zinc-800 transition-colors italic"
+                        >
+                          Limpar seleção
+                        </button>
+                        {campaigns.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => { set({ utmCampaign: c.name }); setCampaignOpen(false); }}
+                            className={`w-full text-left px-3 py-2.5 text-sm flex items-center justify-between gap-2 transition-colors ${
+                              form.utmCampaign === c.name ? "bg-blue-500/10 text-blue-300" : "text-zinc-300 hover:bg-zinc-800"
+                            }`}
+                          >
+                            <span className="truncate">{c.name}</span>
+                            <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full font-medium ${
+                              c.status === "ACTIVE" ? "bg-emerald-500/15 text-emerald-400" : "bg-zinc-700 text-zinc-500"
+                            }`}>
+                              {c.status === "ACTIVE" ? "Ativa" : "Pausada"}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <Input
+                  value={form.utmCampaign}
+                  onChange={(e) => set({ utmCampaign: e.target.value })}
+                  placeholder="nome-da-campanha"
+                  className="bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 text-sm"
+                />
+              )}
+            </div>
           </div>
           <div className="flex items-start gap-2 bg-blue-500/5 border border-blue-500/15 rounded-lg px-3 py-2.5">
             <Info className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
@@ -258,11 +330,18 @@ export default function LinksPage() {
   const [convLinkId, setConvLinkId] = useState<string | null>(null);
   const [convs, setConvs] = useState<LinkConversation[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(false);
+  // Meta Ads campaigns
+  const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   useEffect(() => {
     fetch("/api/links").then((r) => r.json()).then(setLinks);
+    // Tenta buscar campanhas do Meta Ads — silencia erro se não conectado
+    fetch("/api/workspace/meta/campaigns")
+      .then((r) => r.ok ? r.json() : { campaigns: [] })
+      .then((d) => setCampaigns(d.campaigns ?? []))
+      .catch(() => {});
   }, []);
 
   async function handleCreate(form: FormState) {
@@ -354,6 +433,7 @@ export default function LinksPage() {
           onSave={handleCreate}
           onCancel={() => setCreating(false)}
           saving={saving}
+          campaigns={campaigns}
         />
       )}
 
@@ -391,6 +471,7 @@ export default function LinksPage() {
                     onSave={(form) => handleEdit(link.id, form)}
                     onCancel={() => setEditingId(null)}
                     saving={saving}
+                    campaigns={campaigns}
                   />
                 </div>
               );
