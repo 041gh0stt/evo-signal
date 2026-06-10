@@ -74,6 +74,17 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  // Valida secret do webhook quando configurado (env EVOLUTION_WEBHOOK_SECRET).
+  // A Evolution API envia o secret como header "apikey" ou "Authorization: Bearer <secret>".
+  const webhookSecret = process.env.EVOLUTION_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const authHeader = req.headers.get("authorization") ?? req.headers.get("apikey") ?? "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
+    if (token !== webhookSecret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   try {
     const body = await req.json();
 

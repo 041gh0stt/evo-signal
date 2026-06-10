@@ -156,7 +156,7 @@ export default function DemoConfigPage() {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label className="text-zinc-300 text-xs">Pixel ID</Label>
-                <Input defaultValue="934663465656312" readOnly className="bg-zinc-800 border-zinc-700 text-zinc-100 font-mono text-sm" />
+                <Input defaultValue="112233445566778" readOnly className="bg-zinc-800 border-zinc-700 text-zinc-100 font-mono text-sm" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-zinc-300 text-xs">Access Token (Conversions API)</Label>
