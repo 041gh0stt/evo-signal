@@ -8,11 +8,13 @@ import { toast } from "sonner";
 import {
   MessageSquare, Search, X, Zap, ChevronDown,
   Clock, Star, Eye, GitBranch, Info, RefreshCw,
-  SlidersHorizontal, Filter, ArrowUpDown, ArrowUp, ArrowDown, Link2,
+  SlidersHorizontal, Filter, ArrowUpDown, ArrowUp, ArrowDown, Link2, Megaphone,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DateRangePicker, DateRange } from "@/components/ui/date-range-picker";
+
+interface MetaCampaign { id: string; name: string; status: string; }
 
 const ORIGIN_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
   meta_ads:    { label: "Meta Ads",      color: "#3b82f6", icon: "M" },
@@ -86,6 +88,15 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
+  const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
+  const [campaignDropOpen, setCampaignDropOpen] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/workspace/meta/campaigns")
+      .then((r) => r.ok ? r.json() : { campaigns: [] })
+      .then((d) => setCampaigns(d.campaigns ?? []))
+      .catch(() => {});
+  }, []);
 
   // Unique trackable links from conversations
   const trackableLinks: TrackableLink[] = [];
@@ -406,15 +417,68 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
                   />
                 </div>
 
-                {/* UTM Campaign */}
+                {/* UTM Campaign — dropdown se Meta Ads conectado */}
                 <div className="space-y-1.5">
-                  <label className="text-xs text-zinc-500 font-medium">UTM Campaign</label>
-                  <Input
-                    value={advanced.utmCampaign}
-                    onChange={(e) => setAdv({ utmCampaign: e.target.value })}
-                    placeholder="nome-da-campanha"
-                    className="bg-zinc-800 border-zinc-700 text-zinc-200 placeholder:text-zinc-600 text-sm"
-                  />
+                  <label className="text-xs text-zinc-500 font-medium flex items-center gap-1.5">
+                    Campanha
+                    {campaigns.length > 0 && (
+                      <span className="text-[10px] text-blue-400 flex items-center gap-0.5">
+                        <Megaphone className="w-2.5 h-2.5" /> Meta Ads
+                      </span>
+                    )}
+                  </label>
+                  {campaigns.length > 0 ? (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setCampaignDropOpen((v) => !v)}
+                        className="w-full flex items-center justify-between gap-2 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-left hover:border-zinc-600 transition-colors"
+                      >
+                        <span className={advanced.utmCampaign ? "text-zinc-100 truncate" : "text-zinc-500"}>
+                          {advanced.utmCampaign || "Todas as campanhas"}
+                        </span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 shrink-0 transition-transform ${campaignDropOpen ? "rotate-180" : ""}`} />
+                      </button>
+                      {campaignDropOpen && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setCampaignDropOpen(false)} />
+                          <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto">
+                            <button
+                              type="button"
+                              onClick={() => { setAdv({ utmCampaign: "" }); setCampaignDropOpen(false); }}
+                              className="w-full text-left px-3 py-2 text-xs text-zinc-500 hover:bg-zinc-800 transition-colors italic"
+                            >
+                              Todas as campanhas
+                            </button>
+                            {campaigns.map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => { setAdv({ utmCampaign: c.name }); setCampaignDropOpen(false); }}
+                                className={`w-full text-left px-3 py-2.5 text-sm flex items-center justify-between gap-2 transition-colors ${
+                                  advanced.utmCampaign === c.name ? "bg-blue-500/10 text-blue-300" : "text-zinc-300 hover:bg-zinc-800"
+                                }`}
+                              >
+                                <span className="truncate">{c.name}</span>
+                                <span className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded-full font-medium ${
+                                  c.status === "ACTIVE" ? "bg-emerald-500/15 text-emerald-400" : "bg-zinc-700 text-zinc-500"
+                                }`}>
+                                  {c.status === "ACTIVE" ? "Ativa" : "Pausada"}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <Input
+                      value={advanced.utmCampaign}
+                      onChange={(e) => setAdv({ utmCampaign: e.target.value })}
+                      placeholder="nome-da-campanha"
+                      className="bg-zinc-800 border-zinc-700 text-zinc-200 placeholder:text-zinc-600 text-sm"
+                    />
+                  )}
                 </div>
               </div>
 
