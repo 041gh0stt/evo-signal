@@ -135,6 +135,12 @@ export async function GET() {
 
     return NextResponse.json({ connected: false });
   } catch {
-    return NextResponse.json({ connected: false });
+    // Falha ao contactar Evolution API (timeout, rede) — não assume desconectado,
+    // retorna o último estado conhecido salvo no banco
+    return NextResponse.json({
+      connected: workspace.whatsappConnected ?? false,
+      phone: workspace.whatsappPhone ?? undefined,
+      stale: true, // indica que o status pode não estar atualizado
+    });
   }
 }
