@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: "Pingo · Cada lead tem uma origem",
   description: "Rastreie conversas do WhatsApp e dispare eventos para o Meta Pixel com precisão.",
   icons: {
-    icon: "/pingo-logo.png",
+    icon: "/favicon.png",
   },
 };
 
