@@ -11,7 +11,7 @@ const jakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Pingo · Cada lead tem uma origem",
+  title: "Pingo · Pingou, rastreou.",
   description: "Rastreie conversas do WhatsApp e dispare eventos para o Meta Pixel com precisão.",
   icons: {
     icon: "/favicon.png",
