@@ -133,6 +133,11 @@ model TrackableLink {
   redirectPageMessage String?
   redirectDelay       Int            @default(5)
   clicks              Int            @default(0)
+  // Dados do último clique — copiados para a conversa quando o lead envia a primeira mensagem
+  lastClickIp         String?
+  lastClickUserAgent  String?        @db.Text
+  lastClickFbc        String?
+  lastClickAt         DateTime?
   workspace           Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   conversations       Conversation[]
   createdAt           DateTime       @default(now())
@@ -174,6 +179,10 @@ model Conversation {
   adBody          String?            @db.Text
   adSourceUrl     String?            @db.Text
   adThumbnailUrl  String?            @db.Text
+  // Dados de contexto do clique para enriquecer os eventos do Meta Pixel
+  clientIp        String?
+  clientUserAgent String?            @db.Text
+  fbc             String?
   status          String             @default("open")
   leadScore       Int                @default(0)
   firstMessageAt  DateTime

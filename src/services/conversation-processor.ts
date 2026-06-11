@@ -51,8 +51,11 @@ async function moveToFunnelStage(params: {
   workspace: { metaPixelId: string | null; metaAccessToken: string | null; metaTestEventCode: string | null };
   phone: string;
   timestamp: Date;
+  clientIp?: string | null;
+  clientUserAgent?: string | null;
+  fbc?: string | null;
 }) {
-  const { conversationId, conversationName, stage, workspace, phone, timestamp } = params;
+  const { conversationId, conversationName, stage, workspace, phone, timestamp, clientIp, clientUserAgent, fbc } = params;
 
   await prisma.conversation.update({
     where: { id: conversationId },
@@ -73,6 +76,7 @@ async function moveToFunnelStage(params: {
         pixelId: workspace.metaPixelId,
         accessToken: workspace.metaAccessToken,
         testEventCode: workspace.metaTestEventCode ?? undefined,
+        clientIp, clientUserAgent, fbc,
         customData: {
           funnel_stage: stage.name,
           // Purchase exige value + currency como número (Meta API rejeita Decimal/string)
@@ -104,7 +108,7 @@ export async function processMessage(msg: InboundMessage) {
       },
       trackableLinks: {
         where: { welcomeMessage: { not: null } },
-        select: { id: true, welcomeMessage: true, utmSource: true, utmMedium: true, utmCampaign: true, utmContent: true },
+        select: { id: true, welcomeMessage: true, utmSource: true, utmMedium: true, utmCampaign: true, utmContent: true, lastClickIp: true, lastClickUserAgent: true, lastClickFbc: true, lastClickAt: true },
       },
     },
   });
@@ -157,13 +161,25 @@ export async function processMessage(msg: InboundMessage) {
         // Senão, se identificamos que veio de um Link Rastreável, herda os UTMs
         // configurados nele e deduz a origem (ex: meta_ads se o UTM source for meta/facebook/instagram)
         : matchedLink
-          ? {
-              origin: deriveOriginFromUtm(matchedLink.utmSource, matchedLink.utmMedium),
-              trackableLinkId: matchedLink.id,
-              utmSource: matchedLink.utmSource,
-              utmMedium: matchedLink.utmMedium,
-              utmCampaign: matchedLink.utmCampaign,
-            }
+          ? (() => {
+              // Considera clique "válido" se foi nos últimos 10 minutos
+              const clickIsRecent = matchedLink.lastClickAt
+                ? Date.now() - matchedLink.lastClickAt.getTime() < 10 * 60 * 1000
+                : false;
+              return {
+                origin: deriveOriginFromUtm(matchedLink.utmSource, matchedLink.utmMedium),
+                trackableLinkId: matchedLink.id,
+                utmSource: matchedLink.utmSource,
+                utmMedium: matchedLink.utmMedium,
+                utmCampaign: matchedLink.utmCampaign,
+                // Copia dados do clique para enriquecer eventos do Meta Pixel
+                ...(clickIsRecent && {
+                  clientIp: matchedLink.lastClickIp,
+                  clientUserAgent: matchedLink.lastClickUserAgent,
+                  fbc: matchedLink.lastClickFbc,
+                }),
+              };
+            })()
           : {}),
     },
     update: {
@@ -196,6 +212,13 @@ export async function processMessage(msg: InboundMessage) {
   const firstContactStage = workspace.funnelStages.find((s) => s.isFirstContact);
   let movedByFirstContact = false;
 
+  // Dados de contexto do clique para enriquecer os eventos do pixel
+  const clickContext = {
+    clientIp: conversation.clientIp ?? undefined,
+    clientUserAgent: conversation.clientUserAgent ?? undefined,
+    fbc: conversation.fbc ?? undefined,
+  };
+
   if (isNewContact && msg.direction === "inbound" && firstContactStage && conversation.funnelStageId !== firstContactStage.id) {
     await moveToFunnelStage({
       conversationId: conversation.id,
@@ -204,6 +227,7 @@ export async function processMessage(msg: InboundMessage) {
       workspace,
       phone: msg.phone,
       timestamp: msg.timestamp,
+      ...clickContext,
     });
     movedByFirstContact = true;
   }
@@ -226,6 +250,7 @@ export async function processMessage(msg: InboundMessage) {
       workspace,
       phone: msg.phone,
       timestamp: msg.timestamp,
+      ...clickContext,
     });
 
     break; // só aplica a primeira etapa que bater
@@ -274,6 +299,7 @@ export async function processMessage(msg: InboundMessage) {
         pixelId: workspace.metaPixelId,
         accessToken: workspace.metaAccessToken,
         testEventCode: workspace.metaTestEventCode ?? undefined,
+        ...clickContext,
         customData: { utm_source: conversation.utmSource ?? undefined },
       });
       await prisma.pixelFire.update({ where: { id: pixelFire.id }, data: { success: true } });

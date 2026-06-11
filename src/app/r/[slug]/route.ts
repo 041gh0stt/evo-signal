@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+function getClientIp(req: NextRequest): string | null {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    null
+  );
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -10,9 +18,23 @@ export async function GET(
   const link = await prisma.trackableLink.findFirst({ where: { slug } });
   if (!link) return NextResponse.json({ error: "Link not found" }, { status: 404 });
 
+  // Captura dados de contexto do clique para enriquecer eventos do Meta Pixel
+  const clientIp = getClientIp(req);
+  const clientUserAgent = req.headers.get("user-agent") ?? null;
+  // fbclid: parâmetro adicionado automaticamente pelo Meta Ads em links de anúncio
+  const fbclid = req.nextUrl.searchParams.get("fbclid") ?? null;
+  // fbc: formato esperado pela Meta Conversions API
+  const fbc = fbclid ? `fb.1.${Date.now()}.${fbclid}` : null;
+
   await prisma.trackableLink.update({
     where: { id: link.id },
-    data: { clicks: { increment: 1 } },
+    data: {
+      clicks: { increment: 1 },
+      lastClickIp: clientIp,
+      lastClickUserAgent: clientUserAgent,
+      lastClickFbc: fbc,
+      lastClickAt: new Date(),
+    },
   });
 
   const workspace = await prisma.workspace.findUnique({
