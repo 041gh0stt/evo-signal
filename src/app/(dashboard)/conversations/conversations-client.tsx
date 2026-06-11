@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import {
   MessageSquare, Search, X, Zap, ChevronDown,
   Clock, Star, Eye, GitBranch, Info, RefreshCw,
   SlidersHorizontal, Filter, ArrowUpDown, ArrowUp, ArrowDown, Link2, Megaphone,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -68,15 +70,25 @@ const emptyAdvanced: AdvancedFilters = {
   trackableLinkId: "",
 };
 
+interface Pagination {
+  page: number;
+  totalPages: number;
+  totalCount: number;
+  pageSize: number;
+}
+
 interface Props {
   conversations: Conversation[];
   funnelStages: FunnelStage[];
   stats: { total: number; metaAds: number; googleAds: number; organic: number; untracked: number };
+  pagination: Pagination;
+  activeOrigin: string;
 }
 
-export function ConversationsClient({ conversations, funnelStages, stats }: Props) {
+export function ConversationsClient({ conversations, funnelStages, stats, pagination, activeOrigin }: Props) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
-  const [originFilter, setOriginFilter] = useState("all");
+  const [originFilter, setOriginFilter] = useState(activeOrigin);
   const [originDropOpen, setOriginDropOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [advanced, setAdvanced] = useState<AdvancedFilters>(emptyAdvanced);
@@ -119,12 +131,19 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
 
   const setAdv = (patch: Partial<AdvancedFilters>) => setAdvanced((a) => ({ ...a, ...patch }));
 
+  const paginationRef = useRef(pagination);
+  paginationRef.current = pagination;
+
   const refreshList = useCallback(() => {
-    return fetch("/api/conversations")
+    const { page, pageSize } = paginationRef.current;
+    const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+    if (activeOrigin && activeOrigin !== "all") params.set("origin", activeOrigin);
+    return fetch(`/api/conversations?${params}`)
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setLocalConvs(data);
+        const list = Array.isArray(data) ? data : data.conversations;
+        if (Array.isArray(list) && list.length > 0) {
+          setLocalConvs(list);
           setSyncing(false);
         }
         return Array.isArray(data) ? data : [];
@@ -158,8 +177,12 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
     let lastConvSnapshot = JSON.stringify(localConvs.map(c => ({ id: c.id, lastMsg: c.lastMessageAt })));
     const poll = setInterval(async () => {
       try {
-        const res = await fetch("/api/conversations");
-        const data = await res.json();
+        const { page, pageSize } = paginationRef.current;
+        const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+        if (activeOrigin && activeOrigin !== "all") params.set("origin", activeOrigin);
+        const res = await fetch(`/api/conversations?${params}`);
+        const raw = await res.json();
+        const data = Array.isArray(raw) ? raw : raw.conversations;
         if (!Array.isArray(data)) return;
         const newSnapshot = JSON.stringify(data.map((c: Conversation) => ({ id: c.id, lastMsg: c.lastMessageAt })));
         if (newSnapshot === lastConvSnapshot) return;
@@ -267,7 +290,12 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
               { key: "organic",    label: "Orgânico",      value: stats.organic,    color: "text-violet-400" },
               { key: "untracked",  label: "Não Rastreada", value: stats.untracked,  color: "text-amber-400" },
             ].map(({ key, label, value, color }) => (
-              <button key={key} onClick={() => setOriginFilter(key)}
+              <button key={key} onClick={() => {
+                setOriginFilter(key);
+                const params = new URLSearchParams();
+                if (key !== "all") params.set("origin", key);
+                router.push(`/conversations${params.toString() ? `?${params}` : ""}`);
+              }}
                 className={`flex items-center gap-1.5 transition-all ${originFilter === key ? "opacity-100" : "opacity-50 hover:opacity-75"}`}>
                 <span className={`text-xl font-bold ${color}`}>{value}</span>
                 <span className="text-xs text-zinc-500">{label}</span>
@@ -311,7 +339,13 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
                       { key: "untracked",  label: "Não Rastreada", color: "#f59e0b" },
                     ].map(({ key, label, color }) => (
                       <button key={key}
-                        onClick={() => { setOriginFilter(key); setOriginDropOpen(false); }}
+                        onClick={() => {
+                          setOriginFilter(key);
+                          setOriginDropOpen(false);
+                          const params = new URLSearchParams();
+                          if (key !== "all") params.set("origin", key);
+                          router.push(`/conversations${params.toString() ? `?${params}` : ""}`);
+                        }}
                         className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm rounded-lg transition-colors ${
                           originFilter === key ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
                         }`}
@@ -347,7 +381,7 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
             {/* Clear filters */}
             {(originFilter !== "all" || advancedActiveCount > 0 || search) && (
               <button
-                onClick={() => { setOriginFilter("all"); setAdvanced(emptyAdvanced); setSearch(""); }}
+                onClick={() => { setOriginFilter("all"); setAdvanced(emptyAdvanced); setSearch(""); router.push("/conversations"); }}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs text-zinc-500 hover:text-zinc-300 border border-zinc-800 rounded-lg hover:border-zinc-600 transition-all"
               >
                 <X className="w-3.5 h-3.5" /> Limpar filtros
@@ -706,11 +740,65 @@ export function ConversationsClient({ conversations, funnelStages, stats }: Prop
             )}
           </div>
 
-          {sorted.length > 0 && (
-            <p className="text-xs text-zinc-600 text-center mt-3">
-              {sorted.length} conversa{sorted.length !== 1 ? "s" : ""} exibida{sorted.length !== 1 ? "s" : ""}
-              {sorted.length !== localConvs.length && ` (de ${localConvs.length} no total)`}
-            </p>
+          {/* Paginação */}
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800 mt-1">
+              <p className="text-xs text-zinc-500">
+                Página {pagination.page} de {pagination.totalPages} · {pagination.totalCount} conversas
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pagination.page <= 1}
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    params.set("page", String(pagination.page - 1));
+                    if (activeOrigin && activeOrigin !== "all") params.set("origin", activeOrigin);
+                    router.push(`/conversations?${params}`);
+                  }}
+                  className="h-7 w-7 p-0 bg-zinc-900 border-zinc-700 hover:bg-zinc-800 disabled:opacity-30"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </Button>
+                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                  .filter(p => Math.abs(p - pagination.page) <= 2)
+                  .map(p => (
+                    <Button
+                      key={p}
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        params.set("page", String(p));
+                        if (activeOrigin && activeOrigin !== "all") params.set("origin", activeOrigin);
+                        router.push(`/conversations?${params}`);
+                      }}
+                      className={`h-7 w-7 p-0 border-zinc-700 text-xs ${
+                        p === pagination.page
+                          ? "bg-emerald-600 border-emerald-600 text-white"
+                          : "bg-zinc-900 hover:bg-zinc-800 text-zinc-400"
+                      }`}
+                    >
+                      {p}
+                    </Button>
+                  ))}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pagination.page >= pagination.totalPages}
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    params.set("page", String(pagination.page + 1));
+                    if (activeOrigin && activeOrigin !== "all") params.set("origin", activeOrigin);
+                    router.push(`/conversations?${params}`);
+                  }}
+                  className="h-7 w-7 p-0 bg-zinc-900 border-zinc-700 hover:bg-zinc-800 disabled:opacity-30"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </div>
