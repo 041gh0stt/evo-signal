@@ -99,7 +99,13 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
   const [changingStage, setChangingStage] = useState(false);
   const [stageMenuFor, setStageMenuFor] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(conversations.length === 0);
-  const [sortKey, setSortKey] = useState<"name" | "origin" | "funnelStage" | "firstMessageAt" | "lastMessageAt">("lastMessageAt");
+  const [sortKey, setSortKey] = useState<"name" | "origin" | "funnelStage" | "firstMessageAt" | "lastMessageAt">("lastMessageAt")
+  const [termsAccepted, setTermsAccepted] = useState(() =>
+    typeof window !== "undefined" && localStorage.getItem("pingo_audit_terms_accepted") === "1"
+  );
+  const [showTerms, setShowTerms] = useState(false);
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [pendingConvId, setPendingConvId] = useState<string | null>(null);;
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef(selectedId);
@@ -726,7 +732,11 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
 
                     {/* Actions */}
                     <div className="flex items-center gap-1.5 justify-end">
-                      <button onClick={() => setSelectedId(conv.id === selectedId ? null : conv.id)}
+                      <button onClick={() => {
+                        if (conv.id === selectedId) { setSelectedId(null); return; }
+                        if (!termsAccepted) { setPendingConvId(conv.id); setShowTerms(true); }
+                        else setSelectedId(conv.id);
+                      }}
                         title="Visualizar conversa"
                         className={`p-1.5 rounded-lg transition-all ${
                           isSelected ? "bg-emerald-500/20 text-emerald-400" : "text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800"
@@ -802,6 +812,73 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
           )}
         </div>
       </div>
+
+      {/* Modal de Termos de Auditoria */}
+      {showTerms && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl w-full max-w-md">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+              <h2 className="text-base font-semibold text-zinc-100">Auditoria da Conversa</h2>
+              <button onClick={() => { setShowTerms(false); setPendingConvId(null); setTermsChecked(false); }}
+                className="text-zinc-500 hover:text-zinc-300 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              <div className="bg-zinc-800/50 rounded-xl p-4 space-y-3 text-sm text-zinc-400 leading-relaxed">
+                <p>
+                  Você está prestes a receber acesso às conversas realizadas entre seus clientes e os leads,
+                  viabilizadas pela nossa plataforma. Esse acesso tem como finalidade possibilitar análises
+                  estratégicas relacionadas a dados comerciais, métricas de vendas, desempenho de tráfego e similares.
+                </p>
+                <p className="text-zinc-300 font-medium">Ao prosseguir, você declara estar ciente de que:</p>
+                <ol className="space-y-2 list-none">
+                  <li><span className="text-zinc-200 font-semibold">I.</span> As informações acessadas são confidenciais e devem ser tratadas com responsabilidade e sigilo absoluto;</li>
+                  <li><span className="text-zinc-200 font-semibold">II.</span> O uso dessas informações deve se restringir às finalidades comerciais e analíticas para as quais foram disponibilizadas;</li>
+                  <li><span className="text-zinc-200 font-semibold">III.</span> É sua responsabilidade garantir que seus clientes estejam cientes e de acordo com esse acesso e com a finalidade proposta.</li>
+                </ol>
+                <p>Você confirma que está ciente dessas condições e deseja continuar?</p>
+              </div>
+
+              {/* Checkbox */}
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={termsChecked}
+                  onChange={(e) => setTermsChecked(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-zinc-600 bg-zinc-800 accent-emerald-500 cursor-pointer"
+                />
+                <span className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors">
+                  Declaro que estou ciente dessas condições.
+                </span>
+              </label>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-zinc-800">
+              <button
+                disabled={!termsChecked}
+                onClick={() => {
+                  localStorage.setItem("pingo_audit_terms_accepted", "1");
+                  setTermsAccepted(true);
+                  setShowTerms(false);
+                  if (pendingConvId) setSelectedId(pendingConvId);
+                  setPendingConvId(null);
+                  setTermsChecked(false);
+                }}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all
+                  disabled:opacity-40 disabled:cursor-not-allowed
+                  bg-emerald-600 hover:bg-emerald-500 text-white disabled:bg-zinc-700 disabled:text-zinc-500"
+              >
+                Autorizar e continuar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Conversation detail panel */}
       {selectedId && (
