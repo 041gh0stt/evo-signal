@@ -96,7 +96,11 @@ export async function GET() {
 
   try {
     const status = await getInstanceStatus(workspace.whatsappInstanceId);
-    const connected = status?.instance?.state === "open";
+    console.log("[whatsapp/status] raw response:", JSON.stringify(status));
+
+    // Evolution API pode retornar "open", "CONNECTED", "connected" dependendo da versão
+    const state: string = (status?.instance?.state ?? status?.state ?? "").toLowerCase();
+    const connected = state === "open" || state === "connected";
 
     if (connected) {
       let phone = workspace.whatsappPhone;
