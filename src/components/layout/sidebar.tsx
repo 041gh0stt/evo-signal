@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, MessageSquare, Link2,
   Settings, TrendingUp, LogOut, GitBranch,
-  Users, FileText, X,
+  Users, FileText, X, Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -17,6 +17,7 @@ const navItems = [
   { href: "/funil", icon: GitBranch, label: "Jornada de Compra" },
   { href: "/links", icon: Link2, label: "Links Rastreáveis" },
   { href: "/pixel-log", icon: FileText, label: "Registro de Pixel" },
+  { href: "/pixel-site", icon: Globe, label: "Pixel de Site" },
   { href: "/reports", icon: TrendingUp, label: "Relatórios" },
   { href: "/clientes", icon: Users, label: "Clientes" },
   { href: "/settings", icon: Settings, label: "Configurações" },

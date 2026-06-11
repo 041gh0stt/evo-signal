@@ -5,7 +5,7 @@ interface ConversionEvent {
   eventName: string;
   eventId: string;
   eventTime: number;
-  phone: string;
+  phone?: string | null;   // opcional — eventos de site não têm telefone
   name?: string | null;
   pixelId: string;
   accessToken: string;
@@ -56,13 +56,13 @@ export async function fireConversionEvent({
   fbc,
 }: ConversionEvent) {
   // user_data: quanto mais campos, melhor o match rate
-  const userData: Record<string, unknown> = {
-    // Telefone hasheado — campo mais importante (100% quando disponível)
-    ph: [hashPhone(phone)],
-    // external_id: identificador único e consistente por usuário (phone hash)
-    // Usado pelo Meta para reconhecer o mesmo usuário em múltiplos eventos
-    external_id: [hashPhone(phone)],
-  };
+  const userData: Record<string, unknown> = {};
+
+  // Telefone e external_id — campos mais importantes, opcionais para eventos de site
+  if (phone) {
+    userData.ph = [hashPhone(phone)];
+    userData.external_id = [hashPhone(phone)];
+  }
 
   // Nome (primeiro + último) hasheados
   if (name?.trim()) {
@@ -74,7 +74,7 @@ export async function fireConversionEvent({
   }
 
   // País derivado do código do telefone (não precisa de hash)
-  const country = countryFromPhone(phone);
+  const country = phone ? countryFromPhone(phone) : null;
   if (country) {
     userData.country = [hash(country)];
   }

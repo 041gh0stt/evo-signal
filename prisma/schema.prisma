@@ -85,6 +85,7 @@ model Workspace {
   conversations      Conversation[]
   pixelEvents        PixelEventConfig[]
   funnelStages       FunnelStage[]
+  sitePixelEvents    SitePixelEvent[]
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 }
@@ -233,6 +234,35 @@ model PixelEventConfig {
   pixelFires   PixelFire[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+}
+
+// Eventos disparados pelo pixel instalado na landing page do cliente
+model SitePixelEvent {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  eventName       String                        // PageView, Lead, ButtonClick, etc.
+  url             String?   @db.Text
+  referrer        String?   @db.Text
+  clientIp        String?
+  clientUserAgent String?   @db.Text
+  fbclid          String?
+  fbc             String?                       // fb.1.{ts}.{fbclid}
+  gclid           String?
+  utmSource       String?
+  utmMedium       String?
+  utmCampaign     String?
+  campaignId      String?
+  adGroupId       String?
+  adId            String?
+  customData      Json?
+  sentToMeta      Boolean   @default(false)
+  metaEventId     String?
+  metaError       String?
+  createdAt       DateTime  @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, eventName])
 }
 
 model PixelFire {
