@@ -18,13 +18,21 @@ export async function GET(
   const link = await prisma.trackableLink.findFirst({ where: { slug } });
   if (!link) return NextResponse.json({ error: "Link not found" }, { status: 404 });
 
-  // Captura dados de contexto do clique para enriquecer eventos do Meta Pixel
+  // Captura dados de contexto do clique para enriquecer eventos de pixel e atribuição
   const clientIp = getClientIp(req);
   const clientUserAgent = req.headers.get("user-agent") ?? null;
-  // fbclid: parâmetro adicionado automaticamente pelo Meta Ads em links de anúncio
-  const fbclid = req.nextUrl.searchParams.get("fbclid") ?? null;
-  // fbc: formato esperado pela Meta Conversions API
+  const p = req.nextUrl.searchParams;
+
+  // Meta Ads: fbclid adicionado automaticamente pelo Meta em links de anúncio
+  const fbclid = p.get("fbclid") ?? null;
   const fbc = fbclid ? `fb.1.${Date.now()}.${fbclid}` : null;
+
+  // Google Ads: gclid + parâmetros ValueTrack ({campaignid}, {adgroupid}, {creative})
+  // O anunciante precisa adicionar esses params na URL final do anúncio no Google Ads
+  const gclid           = p.get("gclid") ?? null;
+  const googleCampaignId = p.get("campaignid") ?? p.get("utm_campaignid") ?? null;
+  const googleAdGroupId  = p.get("adgroupid")  ?? null;
+  const googleAdId       = p.get("creative")   ?? p.get("adid") ?? null;
 
   await prisma.trackableLink.update({
     where: { id: link.id },
@@ -33,6 +41,7 @@ export async function GET(
       lastClickIp: clientIp,
       lastClickUserAgent: clientUserAgent,
       lastClickFbc: fbc,
+      lastClickGclid: gclid,
       lastClickAt: new Date(),
     },
   });

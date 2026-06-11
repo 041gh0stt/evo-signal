@@ -15,6 +15,7 @@ interface ConversionEvent {
   clientIp?: string | null;
   clientUserAgent?: string | null;
   fbc?: string | null;
+  gclid?: string | null; // Google Click ID — não enviado ao Meta, só para log/atribuição
 }
 
 function hash(value: string): string {

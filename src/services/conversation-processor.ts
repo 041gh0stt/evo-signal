@@ -108,7 +108,7 @@ export async function processMessage(msg: InboundMessage) {
       },
       trackableLinks: {
         where: { welcomeMessage: { not: null } },
-        select: { id: true, welcomeMessage: true, utmSource: true, utmMedium: true, utmCampaign: true, utmContent: true, lastClickIp: true, lastClickUserAgent: true, lastClickFbc: true, lastClickAt: true },
+        select: { id: true, welcomeMessage: true, utmSource: true, utmMedium: true, utmCampaign: true, utmContent: true, lastClickIp: true, lastClickUserAgent: true, lastClickFbc: true, lastClickGclid: true, lastClickAt: true },
       },
     },
   });
@@ -177,6 +177,7 @@ export async function processMessage(msg: InboundMessage) {
                   clientIp: matchedLink.lastClickIp,
                   clientUserAgent: matchedLink.lastClickUserAgent,
                   fbc: matchedLink.lastClickFbc,
+                  gclid: matchedLink.lastClickGclid,
                 }),
               };
             })()
@@ -217,6 +218,7 @@ export async function processMessage(msg: InboundMessage) {
     clientIp: conversation.clientIp ?? undefined,
     clientUserAgent: conversation.clientUserAgent ?? undefined,
     fbc: conversation.fbc ?? undefined,
+    gclid: conversation.gclid ?? undefined,
   };
 
   if (isNewContact && msg.direction === "inbound" && firstContactStage && conversation.funnelStageId !== firstContactStage.id) {
