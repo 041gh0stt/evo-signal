@@ -115,13 +115,14 @@ export default function SettingsPage() {
 
         if (data.metaConnected) loadAdAccounts();
 
-        // Se conectado mas sem número, sincroniza com Evolution API
-        if (data.whatsappConnected) {
+        // Sempre verifica o status real na Evolution API ao carregar a página
+        // (corrige casos onde o banco ficou com whatsappConnected=false incorretamente)
+        if (data.whatsappInstanceId) {
           try {
             const statusRes = await fetch("/api/workspace/whatsapp/status");
             const statusData = await statusRes.json();
-            if (statusData.connected && statusData.phone) {
-              setWorkspace((w) => w ? { ...w, whatsappPhone: statusData.phone } : w);
+            if (statusData.connected) {
+              setWorkspace((w) => w ? { ...w, whatsappConnected: true, whatsappPhone: statusData.phone ?? w.whatsappPhone } : w);
             }
           } catch { /* silencia erro de sync */ }
         }
