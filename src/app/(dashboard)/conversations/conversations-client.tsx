@@ -108,7 +108,10 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
   const [originMenuOpen, setOriginMenuOpen] = useState(false);
   const [changingOrigin, setChangingOrigin] = useState(false);;
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
   const [campaigns, setCampaigns] = useState<MetaCampaign[]>([]);
@@ -173,12 +176,39 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
   }, [syncing, refreshList]);
 
   useEffect(() => {
-    if (!selectedId) { setDetail(null); return; }
+    if (!selectedId) { setDetail(null); setHasMoreMessages(false); return; }
     setLoadingDetail(true);
+    setHasMoreMessages(false);
     fetch(`/api/conversations/${selectedId}`)
       .then((r) => r.json())
-      .then((d) => { setDetail(d); setLoadingDetail(false); });
+      .then((d) => {
+        setDetail(d);
+        setHasMoreMessages(d.hasMore ?? false);
+        setLoadingDetail(false);
+        requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: "instant" }));
+      });
   }, [selectedId]);
+
+  const loadMoreMessages = useCallback(async () => {
+    if (!detail || loadingMoreMessages) return;
+    const firstMsg = detail.messages[0];
+    if (!firstMsg) return;
+    setLoadingMoreMessages(true);
+    const container = messagesContainerRef.current;
+    const scrollHeightBefore = container?.scrollHeight ?? 0;
+    try {
+      const res = await fetch(`/api/conversations/${detail.id}?beforeId=${firstMsg.id}`);
+      const data = await res.json();
+      const older: Message[] = data.messages ?? [];
+      setHasMoreMessages(data.hasMore ?? false);
+      setDetail((prev) => prev ? { ...prev, messages: [...older, ...prev.messages] } : prev);
+      requestAnimationFrame(() => {
+        if (container) container.scrollTop = container.scrollHeight - scrollHeightBefore;
+      });
+    } finally {
+      setLoadingMoreMessages(false);
+    }
+  }, [detail, loadingMoreMessages]);
 
   useEffect(() => {
     let lastConvSnapshot = JSON.stringify(localConvs.map(c => ({ id: c.id, lastMsg: c.lastMessageAt })));
@@ -200,7 +230,18 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
           const updated = data.find((c: Conversation) => c.id === selectedIdRef.current);
           const current = localConvs.find(c => c.id === selectedIdRef.current);
           if (updated && current && String(updated.lastMessageAt) !== String(current.lastMessageAt)) {
-            fetch(`/api/conversations/${selectedIdRef.current}`).then(r => r.json()).then(d => setDetail(d));
+            fetch(`/api/conversations/${selectedIdRef.current}`).then(r => r.json()).then(d => {
+              // Mantém mensagens antigas já carregadas — apenas acrescenta as novas no fim
+              setDetail((prev) => {
+                if (!prev) return d;
+                const existingIds = new Set(prev.messages.map((m: Message) => m.id));
+                const newMsgs = (d.messages ?? []).filter((m: Message) => !existingIds.has(m.id));
+                if (newMsgs.length === 0) return { ...d, messages: prev.messages };
+                const merged = [...prev.messages, ...newMsgs];
+                requestAnimationFrame(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }));
+                return { ...d, messages: merged };
+              });
+            });
           }
         }
       } catch { /* ignora erro de rede */ }
@@ -208,9 +249,6 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
     return () => clearInterval(poll);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [detail?.messages]);
 
   const filtered = localConvs.filter((c) => {
     if (search && !c.name?.toLowerCase().includes(search.toLowerCase()) && !c.phone.includes(search)) return false;
@@ -965,13 +1003,26 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             {loadingDetail ? (
               <div className="flex items-center justify-center h-32 text-zinc-600 text-sm">Carregando mensagens...</div>
             ) : detail?.messages.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-zinc-600 text-sm">Nenhuma mensagem registrada</div>
             ) : (
-              detail?.messages.map((msg) => {
+              <>
+                {hasMoreMessages && (
+                  <div className="flex justify-center pb-1">
+                    <button
+                      onClick={loadMoreMessages}
+                      disabled={loadingMoreMessages}
+                      className="text-xs text-zinc-400 hover:text-zinc-200 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-3 py-1.5 rounded-full transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {loadingMoreMessages ? <RefreshCw className="w-3 h-3 animate-spin" /> : <ChevronLeft className="w-3 h-3 rotate-90" />}
+                      {loadingMoreMessages ? "Carregando..." : "Carregar mensagens anteriores"}
+                    </button>
+                  </div>
+                )}
+              {detail?.messages.map((msg) => {
                 const isOutbound = msg.direction === "outbound";
                 return (
                   <div key={msg.id} className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
@@ -989,7 +1040,8 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
                     </div>
                   </div>
                 );
-              })
+              })}
+              </>
             )}
             <div ref={messagesEndRef} />
           </div>
