@@ -16,9 +16,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DateRangePicker, DateRange } from "@/components/ui/date-range-picker";
 
-const ORIGIN_CONFIG: Record<string, { label: string; color: string }> = {
-  meta_ads:   { label: "Meta Ads",      color: "#3b82f6" },
-  google_ads: { label: "Google Ads",    color: "#10b981" },
+const ORIGIN_CONFIG: Record<string, { label: string; color: string; img?: string }> = {
+  meta_ads:   { label: "Meta Ads",      color: "#3b82f6", img: "/icon-meta-24.png" },
+  google_ads: { label: "Google Ads",    color: "#10b981", img: "/icon-google-ads.png" },
   untracked:  { label: "Não Rastreado", color: "#f59e0b" },
 };
 
@@ -410,10 +410,12 @@ export function DashboardClient({ workspace, stats, onboarding, recentConversati
                         {conv.name ?? conv.phone}
                       </span>
                       {cfg && (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0"
-                          style={{ background: `${cfg.color}20`, color: cfg.color }}
-                        >
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0"
+                          style={{ background: `${cfg.color}20`, color: cfg.color }}>
+                          {cfg.img && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={cfg.img} alt={cfg.label} className="w-3 h-3 object-contain" />
+                          )}
                           {cfg.label}
                         </span>
                       )}

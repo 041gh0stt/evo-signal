@@ -18,9 +18,9 @@ import { DateRangePicker, DateRange } from "@/components/ui/date-range-picker";
 
 interface MetaCampaign { id: string; name: string; status: string; }
 
-const ORIGIN_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
-  meta_ads:    { label: "Meta Ads",      color: "#3b82f6", icon: "M" },
-  google_ads:  { label: "Google Ads",    color: "#10b981", icon: "G" },
+const ORIGIN_CONFIG: Record<string, { label: string; color: string; icon: string; img?: string }> = {
+  meta_ads:    { label: "Meta Ads",      color: "#3b82f6", icon: "M", img: "/icon-meta-24.png" },
+  google_ads:  { label: "Google Ads",    color: "#10b981", icon: "G", img: "/icon-google-ads.png" },
   untracked:   { label: "Não Rastreada", color: "#f59e0b", icon: "?" },
 };
 
@@ -690,9 +690,14 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
                     <div className="flex items-center">
                       {origin ? (
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: origin.color }}>
-                          <span className="w-4 h-4 rounded text-[10px] font-bold flex items-center justify-center" style={{ background: `${origin.color}20` }}>
-                            {origin.icon}
-                          </span>
+                          {origin.img ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={origin.img} alt={origin.label} className="w-4 h-4 object-contain" />
+                          ) : (
+                            <span className="w-4 h-4 rounded text-[10px] font-bold flex items-center justify-center" style={{ background: `${origin.color}20` }}>
+                              {origin.icon}
+                            </span>
+                          )}
                           {origin.label}
                         </span>
                       ) : (
@@ -1015,7 +1020,12 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
                   const o = ORIGIN_CONFIG[detail?.origin ?? "untracked"];
                   return (
                     <>
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: o?.color ?? "#f59e0b" }} />
+                      {o?.img ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={o.img} alt={o.label} className="w-4 h-4 object-contain shrink-0" />
+                      ) : (
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: o?.color ?? "#f59e0b" }} />
+                      )}
                       Origem: {o?.label ?? "Não Rastreada"}
                       <ChevronDown className="w-4 h-4 ml-auto" />
                     </>
@@ -1033,7 +1043,12 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
                           detail?.origin === key ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
                         }`}
                       >
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cfg.color }} />
+                        {cfg.img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={cfg.img} alt={cfg.label} className="w-4 h-4 object-contain shrink-0" />
+                        ) : (
+                          <span className="w-4 h-4 rounded text-[10px] font-bold flex items-center justify-center shrink-0" style={{ background: `${cfg.color}20`, color: cfg.color }}>{cfg.icon}</span>
+                        )}
                         {cfg.label}
                         {detail?.origin === key && <span className="ml-auto text-emerald-400 text-xs">✓</span>}
                       </button>
