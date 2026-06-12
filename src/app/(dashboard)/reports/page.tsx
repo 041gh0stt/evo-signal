@@ -85,7 +85,6 @@ export default async function ReportsPage({
   const ORIGIN_LABELS: Record<string, string> = {
     meta_ads: "Meta Ads",
     google_ads: "Google Ads",
-    organic: "Orgânico",
     untracked: "Não Rastreado",
   };
 

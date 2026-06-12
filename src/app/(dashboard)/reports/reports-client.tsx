@@ -15,7 +15,6 @@ import { DateRangePicker, DateRange } from "@/components/ui/date-range-picker";
 const ORIGIN_COLORS: Record<string, string> = {
   meta_ads: "#3b82f6",
   google_ads: "#10b981",
-  organic: "#8b5cf6",
   untracked: "#f59e0b",
 };
 
@@ -223,7 +222,7 @@ export function ReportsClient({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiCards.map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="bg-zinc-900/50 border-zinc-800 p-4">
-            <div className={`inline-flex p-1.5 rounded-md border mb-2 ${colorClasses[color]}`}>
+            <div className={`self-start p-1.5 rounded-md border mb-2 ${colorClasses[color]}`}>
               <Icon className="w-3.5 h-3.5" />
             </div>
             <div className="text-2xl font-bold text-zinc-100">{value}</div>

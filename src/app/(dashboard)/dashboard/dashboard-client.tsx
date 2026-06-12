@@ -19,7 +19,6 @@ import { DateRangePicker, DateRange } from "@/components/ui/date-range-picker";
 const ORIGIN_CONFIG: Record<string, { label: string; color: string }> = {
   meta_ads:   { label: "Meta Ads",      color: "#3b82f6" },
   google_ads: { label: "Google Ads",    color: "#10b981" },
-  organic:    { label: "Orgânico",      color: "#8b5cf6" },
   untracked:  { label: "Não Rastreado", color: "#f59e0b" },
 };
 

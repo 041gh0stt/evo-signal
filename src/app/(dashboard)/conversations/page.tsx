@@ -58,7 +58,6 @@ export default async function ConversationsPage({
     total: allCounts.reduce((s, r) => s + r._count, 0),
     metaAds:    countByOrigin["meta_ads"]   ?? 0,
     googleAds:  countByOrigin["google_ads"] ?? 0,
-    organic:    countByOrigin["organic"]    ?? 0,
     untracked:  countByOrigin["untracked"]  ?? 0,
   };
 

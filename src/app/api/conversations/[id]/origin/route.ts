@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getActiveWorkspace } from "@/lib/workspace";
 
-const VALID_ORIGINS = ["meta_ads", "google_ads", "organic", "untracked"];
+const VALID_ORIGINS = ["meta_ads", "google_ads", "untracked"];
 
 export async function PATCH(
   req: NextRequest,

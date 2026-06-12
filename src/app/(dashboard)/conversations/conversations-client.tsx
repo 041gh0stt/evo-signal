@@ -21,7 +21,6 @@ interface MetaCampaign { id: string; name: string; status: string; }
 const ORIGIN_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
   meta_ads:    { label: "Meta Ads",      color: "#3b82f6", icon: "M" },
   google_ads:  { label: "Google Ads",    color: "#10b981", icon: "G" },
-  organic:     { label: "Orgânico",      color: "#8b5cf6", icon: "O" },
   untracked:   { label: "Não Rastreada", color: "#f59e0b", icon: "?" },
 };
 
@@ -80,7 +79,7 @@ interface Pagination {
 interface Props {
   conversations: Conversation[];
   funnelStages: FunnelStage[];
-  stats: { total: number; metaAds: number; googleAds: number; organic: number; untracked: number };
+  stats: { total: number; metaAds: number; googleAds: number; untracked: number };
   pagination: Pagination;
   activeOrigin: string;
 }
@@ -313,7 +312,6 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
               { key: "all",        label: "Total",         value: stats.total,      color: "text-zinc-300" },
               { key: "meta_ads",   label: "Meta Ads",      value: stats.metaAds,    color: "text-blue-400" },
               { key: "google_ads", label: "Google Ads",    value: stats.googleAds,  color: "text-emerald-400" },
-              { key: "organic",    label: "Orgânico",      value: stats.organic,    color: "text-violet-400" },
               { key: "untracked",  label: "Não Rastreada", value: stats.untracked,  color: "text-amber-400" },
             ].map(({ key, label, value, color }) => (
               <button key={key} onClick={() => {
