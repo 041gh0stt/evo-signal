@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Log completo para diagnóstico no Vercel
-    console.log("[webhook] RAW:", JSON.stringify(body).slice(0, 500));
+    // Log completo para diagnóstico no Vercel (2000 chars)
+    console.log("[webhook] RAW:", JSON.stringify(body).slice(0, 2000));
 
     const { event, instance, data } = body;
     // Evolution API v2 pode mandar instance como string ou objeto
