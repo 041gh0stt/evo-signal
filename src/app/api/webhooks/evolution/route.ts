@@ -131,7 +131,20 @@ export async function POST(req: NextRequest) {
         const phone = extractPhone(remoteJid);
         const isFromMe = msg.key.fromMe === true;
         const content = extractContent(msg.message);
-        const adReferral = extractAdReferral(msg.message);
+        // Tenta extrair adReferral de dentro de msg.message (contextInfo.externalAdReplyInfo)
+        // OU diretamente do nível raiz do msg (formato alternativo da Evolution API v2)
+        const adReferralFromMessage = extractAdReferral(msg.message);
+        const adReferralTopLevel = msg.adReferral as Record<string, unknown> | null | undefined;
+        const adReferral = adReferralFromMessage ?? (adReferralTopLevel
+          ? {
+              sourceId: (adReferralTopLevel.sourceId as string) ?? null,
+              title: (adReferralTopLevel.title as string) ?? null,
+              body: (adReferralTopLevel.body as string) ?? null,
+              sourceUrl: (adReferralTopLevel.sourceUrl as string) ?? null,
+              thumbnailUrl: (adReferralTopLevel.thumbnailUrl as string) ?? null,
+            }
+          : null);
+        console.log(`[webhook] adReferral=${JSON.stringify(adReferral)}`);
         const pushName = msg.pushName ?? null;
         const tsRaw = msg.messageTimestamp;
         const timestamp = new Date(

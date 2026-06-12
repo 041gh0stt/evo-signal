@@ -149,7 +149,8 @@ export async function processMessage(msg: InboundMessage) {
       lastMessageAt: msg.timestamp,
       // Se a primeira mensagem veio de um anúncio "Clique para o WhatsApp" (Meta Ads),
       // marca a origem e guarda os dados do criativo para exibição posterior
-      ...(msg.adReferral?.sourceId
+      // Qualquer campo não-nulo no adReferral indica que veio de anúncio Meta Ads
+      ...(msg.adReferral && (msg.adReferral.sourceId || msg.adReferral.title || msg.adReferral.body || msg.adReferral.sourceUrl)
         ? {
             origin: "meta_ads",
             adSourceId: msg.adReferral.sourceId,
