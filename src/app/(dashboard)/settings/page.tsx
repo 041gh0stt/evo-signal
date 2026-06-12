@@ -49,17 +49,20 @@ export default function SettingsPage() {
   // Meta Ads connection
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([]);
   const [loadingAdAccounts, setLoadingAdAccounts] = useState(false);
+  const [adAccountsError, setAdAccountsError] = useState(false);
   const [adAccountOpen, setAdAccountOpen] = useState(false);
   const [savingAdAccount, setSavingAdAccount] = useState(false);
   const [disconnectingMeta, setDisconnectingMeta] = useState(false);
 
   const loadAdAccounts = useCallback(async () => {
     setLoadingAdAccounts(true);
+    setAdAccountsError(false);
     try {
       const res = await fetch("/api/workspace/meta/adaccounts");
       const data = await res.json();
       if (res.ok) setAdAccounts(data.accounts ?? []);
-    } catch { /* ignore */ }
+      else setAdAccountsError(true);
+    } catch { setAdAccountsError(true); }
     setLoadingAdAccounts(false);
   }, []);
 
@@ -382,15 +385,15 @@ export default function SettingsPage() {
               <Label className="text-zinc-300 text-xs">Conta de anúncios</Label>
               <div className="relative">
                 <button
-                  onClick={() => setAdAccountOpen((v) => !v)}
+                  onClick={() => { setAdAccountOpen((v) => !v); if (adAccounts.length === 0 && !loadingAdAccounts) loadAdAccounts(); }}
                   disabled={loadingAdAccounts || savingAdAccount}
                   className="w-full flex items-center justify-between gap-2 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-left hover:border-zinc-600 transition-colors disabled:opacity-60"
                 >
-                  <span className={adAccounts.find((a) => a.id === workspace.metaAdAccountId) ? "text-zinc-100" : "text-zinc-500"}>
+                  <span className={workspace.metaAdAccountId ? "text-zinc-100" : "text-zinc-500"}>
                     {loadingAdAccounts
                       ? "Carregando contas..."
                       : adAccounts.find((a) => a.id === workspace.metaAdAccountId)?.name
-                        ?? "Selecione uma conta de anúncios"}
+                        ?? (workspace.metaAdAccountId ? workspace.metaAdAccountId : "Selecione uma conta de anúncios")}
                   </span>
                   {savingAdAccount ? (
                     <RefreshCw className="w-4 h-4 text-zinc-500 animate-spin shrink-0" />
@@ -428,6 +431,11 @@ export default function SettingsPage() {
                   </>
                 )}
               </div>
+              {adAccountsError && (
+                <p className="text-xs text-yellow-500 mt-1.5">
+                  Não foi possível carregar as contas do Meta. Clique no dropdown para tentar novamente ou reconecte o Meta Ads.
+                </p>
+              )}
             </div>
 
             <Button
