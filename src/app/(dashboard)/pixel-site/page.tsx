@@ -7,7 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Globe, CheckCircle, XCircle, MousePointerClick, Eye, Zap, Copy } from "lucide-react";
+import { Globe, CheckCircle, XCircle, MousePointerClick, Eye, Zap, MessageCircle } from "lucide-react";
 import { PixelSiteClient } from "./pixel-site-client";
 
 export default async function PixelSitePage() {
@@ -29,17 +29,19 @@ export default async function PixelSitePage() {
   const totalWithGclid = events.filter((e) => e.gclid).length;
 
   const EVENT_ICONS: Record<string, React.ReactNode> = {
-    PageView:    <Eye className="w-3 h-3" />,
-    Lead:        <Zap className="w-3 h-3" />,
-    ButtonClick: <MousePointerClick className="w-3 h-3" />,
+    PageView:      <Eye className="w-3 h-3" />,
+    Lead:          <Zap className="w-3 h-3" />,
+    ButtonClick:   <MousePointerClick className="w-3 h-3" />,
+    WhatsAppClick: <MessageCircle className="w-3 h-3" />,
   };
 
   const EVENT_COLORS: Record<string, string> = {
-    PageView: "#6b7280",
-    Lead: "#3b82f6",
-    ButtonClick: "#f59e0b",
-    Purchase: "#10b981",
-    Contact: "#8b5cf6",
+    PageView:      "#6b7280",
+    Lead:          "#3b82f6",
+    ButtonClick:   "#f59e0b",
+    WhatsAppClick: "#25d366",
+    Purchase:      "#10b981",
+    Contact:       "#8b5cf6",
   };
 
   // Snippet gerado com o workspace ID real — carrega o pingo-pixel.js externo
@@ -90,7 +92,7 @@ export default async function PixelSitePage() {
         <Card className="bg-zinc-900/50 border-zinc-800 p-4">
           <div className="text-2xl font-bold text-yellow-400">{totalWithGclid}</div>
           <div className="text-xs text-zinc-500 mt-0.5 flex items-center gap-1">
-            <MousePointerClick className="w-3 h-3" /> Com gclid
+            <MousePointerClick className="w-3 h-3" /> Cliques Google Ads
           </div>
         </Card>
       </div>
@@ -102,7 +104,7 @@ export default async function PixelSitePage() {
             <p className="text-sm font-semibold text-zinc-200">Instalar na Landing Page</p>
             <p className="text-xs text-zinc-500 mt-0.5">
               Cole esse código no <code className="text-zinc-400">&lt;head&gt;</code> da sua página.
-              O evento <span className="text-zinc-300">PageView</span> é disparado automaticamente.
+              <span className="text-zinc-300"> PageView</span> e <span className="text-zinc-300">WhatsAppClick</span> são disparados automaticamente — sem código extra.
             </p>
           </div>
         </div>
