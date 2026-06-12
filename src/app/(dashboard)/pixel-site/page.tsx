@@ -42,36 +42,16 @@ export default async function PixelSitePage() {
     Contact: "#8b5cf6",
   };
 
-  // Snippet gerado com o workspace ID real
-  const appUrl = process.env.NEXTAUTH_URL ?? "https://seu-dominio.com";
+  // Snippet gerado com o workspace ID real — carrega o pingo-pixel.js externo
+  const appUrl = (process.env.NEXTAUTH_URL ?? "https://seu-dominio.com").replace(/\/$/, "");
   const snippet = `<!-- Pingo Site Pixel -->
 <script>
-!function(w){
-  var id='${workspace.id}';
-  var base='${appUrl}';
-  function send(e,d){
-    var p=new URLSearchParams(w.location.search);
-    fetch(base+'/api/pixel/'+id+'/event',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        event:e,data:d||{},
-        url:w.location.href,
-        referrer:document.referrer,
-        fbclid:p.get('fbclid'),
-        gclid:p.get('gclid'),
-        campaignid:p.get('campaignid'),
-        adgroupid:p.get('adgroupid'),
-        creative:p.get('creative'),
-        utm_source:p.get('utm_source'),
-        utm_medium:p.get('utm_medium'),
-        utm_campaign:p.get('utm_campaign')
-      })
-    }).catch(function(){});
-  }
-  w.Pingo={track:function(e,d){send(e,d)}};
-  send('PageView');
-}(window);
+(function(w,d){
+  w.pingo={workspaceId:'${workspace.id}'};
+  var s=d.createElement('script');
+  s.async=1;s.src='${appUrl}/pingo-pixel.js';
+  d.getElementsByTagName('head')[0].appendChild(s);
+})(window,document);
 </script>`;
 
   return (
@@ -135,17 +115,18 @@ export default async function PixelSitePage() {
       <Card className="bg-zinc-900/50 border-zinc-800 p-4 space-y-3">
         <p className="text-sm font-semibold text-zinc-200">Como rastrear outros eventos</p>
         <p className="text-xs text-zinc-400">
-          Após instalar o snippet, use <code className="text-zinc-300">Pingo.track()</code> em qualquer botão ou evento da página:
+          O pixel dispara <span className="text-zinc-300">PageView</span> e <span className="text-zinc-300">WhatsAppClick</span> automaticamente.
+          Para eventos extras, use <code className="text-zinc-300">Pingo.track()</code>:
         </p>
         <div className="space-y-2">
           <div className="bg-zinc-950 rounded-md p-3 font-mono text-xs">
-            <span className="text-zinc-500">{"// Clique no botão de WhatsApp"}</span>
+            <span className="text-zinc-500">{"// Disparado automaticamente em links wa.me"}</span>
             <br />
             <span className="text-blue-400">{"Pingo.track"}</span>
-            <span className="text-zinc-300">{"('ButtonClick', { button: 'whatsapp' })"}</span>
+            <span className="text-zinc-300">{"('WhatsAppClick', { link: 'wa.me/...' })"}</span>
           </div>
           <div className="bg-zinc-950 rounded-md p-3 font-mono text-xs">
-            <span className="text-zinc-500">{"// Lead (ex: formulário enviado)"}</span>
+            <span className="text-zinc-500">{"// Lead manual (ex: formulário enviado)"}</span>
             <br />
             <span className="text-blue-400">{"Pingo.track"}</span>
             <span className="text-zinc-300">{"('Lead', { form: 'contato' })"}</span>

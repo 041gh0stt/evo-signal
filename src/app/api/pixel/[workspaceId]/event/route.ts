@@ -35,7 +35,10 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: CORS_HEADERS });
   }
 
-  const eventName = typeof body.event === "string" ? body.event.trim() : "PageView";
+  // Aceita tanto "eventName" (novo pixel) quanto "event" (snippet legado)
+  const eventName = (typeof body.eventName === "string" ? body.eventName.trim() : null)
+    ?? (typeof body.event === "string" ? body.event.trim() : null)
+    ?? "PageView";
   if (!eventName) {
     return NextResponse.json({ error: "Missing event name" }, { status: 400, headers: CORS_HEADERS });
   }
@@ -55,20 +58,23 @@ export async function POST(
   // Parâmetros capturados pelo snippet na landing page
   const fbclid      = typeof body.fbclid      === "string" ? body.fbclid      : null;
   const gclid       = typeof body.gclid       === "string" ? body.gclid       : null;
-  const utmSource   = typeof body.utm_source   === "string" ? body.utm_source   : null;
-  const utmMedium   = typeof body.utm_medium   === "string" ? body.utm_medium   : null;
-  const utmCampaign = typeof body.utm_campaign === "string" ? body.utm_campaign : null;
+  // Aceita camelCase (novo pixel) e snake_case (snippet legado)
+  const utmSource   = (typeof body.utmSource   === "string" ? body.utmSource   : null) ?? (typeof body.utm_source   === "string" ? body.utm_source   : null);
+  const utmMedium   = (typeof body.utmMedium   === "string" ? body.utmMedium   : null) ?? (typeof body.utm_medium   === "string" ? body.utm_medium   : null);
+  const utmCampaign = (typeof body.utmCampaign === "string" ? body.utmCampaign : null) ?? (typeof body.utm_campaign === "string" ? body.utm_campaign : null);
   const campaignId  = typeof body.campaignid  === "string" ? body.campaignid  : null;
   const adGroupId   = typeof body.adgroupid   === "string" ? body.adgroupid   : null;
   const adId        = typeof body.creative    === "string" ? body.creative    : null;
   const url         = typeof body.url         === "string" ? body.url         : null;
   const referrer    = typeof body.referrer    === "string" ? body.referrer    : null;
-  const customData  = body.data && typeof body.data === "object" && !Array.isArray(body.data)
-    ? body.data as Record<string, unknown>
+  const rawCustom   = body.customData ?? body.data;
+  const customData  = rawCustom && typeof rawCustom === "object" && !Array.isArray(rawCustom)
+    ? rawCustom as Record<string, unknown>
     : null;
 
-  // Gera o fbc a partir do fbclid (formato padrão Meta)
-  const fbc = fbclid ? `fb.1.${Date.now()}.${fbclid}` : null;
+  // Usa fbc enviado pelo pixel (do cookie _fbc) ou gera a partir do fbclid
+  const fbc = (typeof body.fbc === "string" ? body.fbc : null)
+    ?? (fbclid ? `fb.1.${Date.now()}.${fbclid}` : null);
 
   // Salva o evento no banco
   const siteEvent = await prisma.sitePixelEvent.create({
