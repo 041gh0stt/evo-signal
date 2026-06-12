@@ -5,13 +5,13 @@ const html = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pingo — Pingou, rastreou. | Rastreie cada conversa do WhatsApp até o anúncio</title>
+  <title>Pingo · Pingou, rastreou.</title>
   <meta name="description" content="O Pingo identifica exatamente qual anúncio gerou cada conversa no WhatsApp e envia eventos reais de conversão para o Meta Ads. Pare de anunciar no escuro." />
   <meta name="theme-color" content="#050505" />
-  <meta property="og:title" content="Pingo — Pingou, rastreou." />
+  <meta property="og:title" content="Pingo · Pingou, rastreou." />
   <meta property="og:description" content="Descubra qual anúncio gerou cada conversa no WhatsApp e envie conversões reais para o Meta Ads automaticamente." />
   <meta property="og:type" content="website" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 6 C58 26 86 50 86 72 A36 33 0 1 1 14 72 C14 50 42 26 50 6 Z' fill='%2310F2A3' stroke='%23061410' stroke-width='6'/%3E%3C/svg%3E" />
+  <link rel="icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
