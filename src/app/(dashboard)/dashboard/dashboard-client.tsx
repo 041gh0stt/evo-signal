@@ -307,8 +307,9 @@ export function DashboardClient({ workspace, stats, onboarding, recentConversati
                 <XAxis dataKey="name" tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#71717a", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, color: "#f4f4f5", fontSize: 12 }}
-                  cursor={{ fill: "#27272a" }}
+                  contentStyle={{ background: "#27272a", border: "1px solid #52525b", borderRadius: 8, color: "#f4f4f5", fontSize: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.5)" }}
+                  labelStyle={{ color: "#a1a1aa", marginBottom: 2 }}
+                  cursor={{ fill: "#3f3f46" }}
                 />
                 <Bar dataKey="value" radius={[5, 5, 0, 0]} label={false}>
                   {chartData.map((entry, i) => (
