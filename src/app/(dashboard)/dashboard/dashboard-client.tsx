@@ -17,7 +17,7 @@ import { useState } from "react";
 import { DateRangePicker, DateRange } from "@/components/ui/date-range-picker";
 
 const ORIGIN_CONFIG: Record<string, { label: string; color: string; img?: string }> = {
-  meta_ads:   { label: "Meta Ads",      color: "#3b82f6", img: "/icon-meta-24.png" },
+  meta_ads:   { label: "Meta Ads",      color: "#3b82f6", img: "/icon-meta-new.png" },
   google_ads: { label: "Google Ads",    color: "#10b981", img: "/icon-google-ads.png" },
   untracked:  { label: "Não Rastreado", color: "#f59e0b" },
 };
