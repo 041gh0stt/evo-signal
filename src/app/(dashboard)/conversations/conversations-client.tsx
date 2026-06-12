@@ -105,7 +105,9 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
   );
   const [showTerms, setShowTerms] = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
-  const [pendingConvId, setPendingConvId] = useState<string | null>(null);;
+  const [pendingConvId, setPendingConvId] = useState<string | null>(null);
+  const [originMenuOpen, setOriginMenuOpen] = useState(false);
+  const [changingOrigin, setChangingOrigin] = useState(false);;
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef(selectedId);
@@ -257,6 +259,24 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
       if (detail?.id === convId) setDetail((d) => d ? { ...d, funnelStageId: stageId, funnelStage: stage } : d);
       setStageMenuFor(null);
       toast.success(stage ? `Movido para "${stage.name}"` : "Removido do funil");
+    }
+  }
+
+  async function handleChangeOrigin(convId: string, newOrigin: string) {
+    setChangingOrigin(true);
+    const res = await fetch(`/api/conversations/${convId}/origin`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ origin: newOrigin }),
+    });
+    setChangingOrigin(false);
+    if (res.ok) {
+      setLocalConvs((c) => c.map((x) => x.id === convId ? { ...x, origin: newOrigin } : x));
+      if (detail?.id === convId) setDetail((d) => d ? { ...d, origin: newOrigin } : d);
+      setOriginMenuOpen(false);
+      toast.success(`Origem alterada para "${ORIGIN_CONFIG[newOrigin]?.label ?? newOrigin}"`);
+    } else {
+      toast.error("Erro ao alterar origem");
     }
   }
 
@@ -984,7 +1004,48 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
             </div>
           )}
 
-          <div className="p-4 border-t border-zinc-800 shrink-0">
+          <div className="p-4 border-t border-zinc-800 shrink-0 space-y-2">
+            {/* Alterar Origem */}
+            <div className="relative">
+              <Button
+                onClick={() => setOriginMenuOpen((v) => !v)}
+                disabled={changingOrigin}
+                variant="outline"
+                className="w-full border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800 text-zinc-300 font-medium gap-2 justify-start"
+              >
+                {(() => {
+                  const o = ORIGIN_CONFIG[detail?.origin ?? "untracked"];
+                  return (
+                    <>
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: o?.color ?? "#f59e0b" }} />
+                      Origem: {o?.label ?? "Não Rastreada"}
+                      <ChevronDown className="w-4 h-4 ml-auto" />
+                    </>
+                  );
+                })()}
+              </Button>
+              {originMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setOriginMenuOpen(false)} />
+                  <div className="absolute bottom-11 left-0 right-0 z-20 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-1">
+                    {Object.entries(ORIGIN_CONFIG).map(([key, cfg]) => (
+                      <button key={key}
+                        onClick={() => selectedId && handleChangeOrigin(selectedId, key)}
+                        className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm rounded-lg transition-colors ${
+                          detail?.origin === key ? "bg-zinc-800 text-zinc-100" : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cfg.color }} />
+                        {cfg.label}
+                        {detail?.origin === key && <span className="ml-auto text-emerald-400 text-xs">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Alterar Etapa */}
             <div className="relative">
               <Button
                 onClick={() => setStageMenuFor(stageMenuFor === `panel-${selectedId}` ? null : `panel-${selectedId}`)}
