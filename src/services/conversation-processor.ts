@@ -189,19 +189,21 @@ export async function processMessage(msg: InboundMessage) {
   }
 
   // 4. WhatsAppClick recente do Pixel de Site (capturado pelo pingo-pixel.js na landing page)
-  // Busca o clique mais recente nos últimos 30 min para este workspace — indica que o visitante
-  // clicou num botão de WhatsApp na landing page antes de mandar a primeira mensagem.
+  // Só considera cliques dos últimos 5 min e ainda não atribuídos a outra conversa,
+  // eliminando o risco de atribuir o mesmo clique a dois leads diferentes.
   async function getPixelClickOrigin(): Promise<Record<string, unknown>> {
     if (msg.direction !== "inbound") return {};
-    const since = new Date(Date.now() - 30 * 60 * 1000);
+    const since = new Date(Date.now() - 5 * 60 * 1000);
     const click = await prisma.sitePixelEvent.findFirst({
-      where: { workspaceId: workspace!.id, eventName: "WhatsAppClick", createdAt: { gte: since } },
+      where: { workspaceId: workspace!.id, eventName: "WhatsAppClick", createdAt: { gte: since }, attributedAt: null },
       orderBy: { createdAt: "desc" },
-      select: { utmSource: true, utmMedium: true, utmCampaign: true, gclid: true, fbc: true, fbclid: true },
+      select: { id: true, utmSource: true, utmMedium: true, utmCampaign: true, gclid: true, fbc: true, fbclid: true },
     });
     if (!click) return {};
     const origin = deriveOriginFromUtm(click.utmSource, click.utmMedium);
     if (origin === "untracked") return {};
+    // Marca como usado para não ser atribuído a outra conversa
+    await prisma.sitePixelEvent.update({ where: { id: click.id }, data: { attributedAt: new Date() } });
     return {
       origin,
       utmSource: click.utmSource,

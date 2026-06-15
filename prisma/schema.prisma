@@ -261,6 +261,7 @@ model SitePixelEvent {
   sentToMeta      Boolean   @default(false)
   metaEventId     String?
   metaError       String?
+  attributedAt    DateTime?                     // preenchido quando atribuído a uma conversa
   createdAt       DateTime  @default(now())
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
