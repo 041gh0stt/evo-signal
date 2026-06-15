@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Trash2, AlertTriangle, Link2, Unlink, ChevronDown, Check, Webhook } from "lucide-react";
+import { Wifi, WifiOff, QrCode, RefreshCw, Save, Zap, Trash2, AlertTriangle, Link2, Unlink, ChevronDown, Check, Webhook, Megaphone } from "lucide-react";
 import Image from "next/image";
 import { TeamMembersCard } from "@/components/settings/team-members-card";
 
@@ -24,6 +24,7 @@ interface WorkspaceSettings {
   hasAccessToken: boolean;
   metaConnected: boolean;
   metaAdAccountId: string | null;
+  metaAdMessages: string | null;
 }
 
 interface AdAccount {
@@ -45,6 +46,8 @@ export default function SettingsPage() {
   const [testCode, setTestCode] = useState("");
   const [saving, setSaving] = useState(false);
   const [tokenSaved, setTokenSaved] = useState(false);
+  const [adMessages, setAdMessages] = useState("");
+  const [savingAdMessages, setSavingAdMessages] = useState(false);
 
   // Meta Ads connection
   const [adAccounts, setAdAccounts] = useState<AdAccount[]>([]);
@@ -115,6 +118,7 @@ export default function SettingsPage() {
         setPixelId(data.metaPixelId ?? "");
         setTestCode(data.metaTestEventCode ?? "");
         setTokenSaved(!!data.hasAccessToken);
+        setAdMessages(data.metaAdMessages ?? "");
 
         if (data.metaConnected) loadAdAccounts();
 
@@ -249,6 +253,22 @@ export default function SettingsPage() {
       setAccessToken("");
     } else {
       toast.error("Erro ao salvar configurações");
+    }
+  }
+
+  async function handleSaveAdMessages() {
+    setSavingAdMessages(true);
+    const res = await fetch("/api/workspace/ad-messages", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metaAdMessages: adMessages }),
+    });
+    setSavingAdMessages(false);
+    if (res.ok) {
+      setWorkspace((w) => w ? { ...w, metaAdMessages: adMessages } : w);
+      toast.success("Mensagens dos anúncios salvas!");
+    } else {
+      toast.error("Erro ao salvar");
     }
   }
 
@@ -517,6 +537,41 @@ export default function SettingsPage() {
         <Button onClick={handleSavePixel} disabled={saving} className="bg-blue-600 hover:bg-blue-500 text-white">
           <Save className="w-4 h-4 mr-2" />
           {saving ? "Salvando..." : "Salvar Configurações do Pixel"}
+        </Button>
+      </Card>
+
+      <Separator className="bg-zinc-800" />
+
+      {/* Mensagens de anúncios do Meta */}
+      <Card className="bg-zinc-900/50 border-zinc-800 p-5 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
+            <Megaphone className="w-4 h-4 text-blue-400" />
+            Anúncios de Mensagem do Meta
+          </h2>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Cole aqui a mensagem automática de cada anúncio de mensagem (a frase que o lead já chega enviando).
+            Todo contato que entrar com uma dessas frases é marcado como <span className="text-blue-400">Meta Ads</span> automaticamente.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-zinc-300 text-xs">Mensagens dos anúncios (uma por linha)</Label>
+          <textarea
+            value={adMessages}
+            onChange={(e) => setAdMessages(e.target.value)}
+            rows={4}
+            placeholder={"Olá, vim do anúncio, e gostaria de agendar minha consulta\nGostaria de mais informações sobre o tratamento"}
+            className="w-full rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder:text-zinc-600 text-sm px-3 py-2.5 resize-y focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <p className="text-xs text-zinc-600">
+            Você encontra essa frase em cada anúncio dentro do Gerenciador de Anúncios do Meta, na prévia do anúncio (campo &quot;mensagem&quot;).
+          </p>
+        </div>
+
+        <Button onClick={handleSaveAdMessages} disabled={savingAdMessages} className="bg-blue-600 hover:bg-blue-500 text-white">
+          <Save className="w-4 h-4 mr-2" />
+          {savingAdMessages ? "Salvando..." : "Salvar Mensagens dos Anúncios"}
         </Button>
       </Card>
 

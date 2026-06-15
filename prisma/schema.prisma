@@ -79,6 +79,9 @@ model Workspace {
   metaTestEventCode  String?
   metaUserToken      String?            @db.Text
   metaAdAccountId    String?
+  // Mensagens automáticas de saudação dos anúncios de mensagem do Meta (uma por linha).
+  // Leads cuja primeira mensagem corresponde a uma delas são marcados como meta_ads.
+  metaAdMessages     String?            @db.Text
   members            WorkspaceMember[]
   invites            WorkspaceInvite[]
   trackableLinks     TrackableLink[]

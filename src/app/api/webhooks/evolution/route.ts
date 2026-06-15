@@ -21,37 +21,51 @@ interface AdReferral {
   body: string | null;
   sourceUrl: string | null;
   thumbnailUrl: string | null;
+  ctwaClid: string | null;
 }
 
-// Extrai dados do anúncio "Clique para o WhatsApp" (Meta Ads) de uma mensagem.
-// O Baileys/Evolution API expõe isso em contextInfo.externalAdReplyInfo,
-// presente em praticamente qualquer tipo de mensagem (texto, imagem, etc).
-function extractAdReferral(message: Record<string, unknown> | null | undefined): AdReferral | null {
-  if (!message) return null;
-
-  const candidates = [
-    message.extendedTextMessage,
-    message.imageMessage,
-    message.videoMessage,
-    message.conversation ? message : null,
-    message,
-  ];
-
-  for (const candidate of candidates) {
-    const ctx = (candidate as Record<string, unknown> | null | undefined)?.contextInfo as Record<string, unknown> | undefined;
-    const adReply = ctx?.externalAdReplyInfo as Record<string, unknown> | undefined;
-    if (adReply) {
-      return {
-        sourceId: (adReply.sourceId as string) ?? null,
-        title: (adReply.title as string) ?? null,
-        body: (adReply.body as string) ?? null,
-        sourceUrl: (adReply.sourceUrl as string) ?? null,
-        thumbnailUrl: (adReply.thumbnailUrl as string) ?? null,
-      };
-    }
+// Percorre RECURSIVAMENTE o objeto procurando os sinais de anúncio do Meta em
+// qualquer nível, já que a Evolution API v2 posiciona o externalAdReplyInfo /
+// ctwaClid em lugares diferentes dependendo do tipo de mensagem e da versão.
+// - externalAdReplyInfo: dados do criativo (título, corpo, thumbnail) — anúncio "Clique para WhatsApp"
+// - ctwaClid: Click-To-WhatsApp click id — presente em todo lead de anúncio de mensagem, mesmo sem o criativo
+function collectAdInfo(
+  obj: unknown,
+  acc: { adReply?: Record<string, unknown>; ctwaClid?: string },
+  depth = 0
+): void {
+  if (!obj || typeof obj !== "object" || depth > 8) return;
+  if (Array.isArray(obj)) {
+    for (const item of obj) collectAdInfo(item, acc, depth + 1);
+    return;
   }
+  const rec = obj as Record<string, unknown>;
+  if (!acc.adReply && rec.externalAdReplyInfo && typeof rec.externalAdReplyInfo === "object") {
+    acc.adReply = rec.externalAdReplyInfo as Record<string, unknown>;
+  }
+  if (!acc.ctwaClid && typeof rec.ctwaClid === "string" && rec.ctwaClid) {
+    acc.ctwaClid = rec.ctwaClid;
+  }
+  for (const key in rec) {
+    collectAdInfo(rec[key], acc, depth + 1);
+  }
+}
 
-  return null;
+// Extrai dados do anúncio do Meta varrendo o objeto inteiro da mensagem (raw msg).
+function extractAdReferral(rawMsg: Record<string, unknown> | null | undefined): AdReferral | null {
+  if (!rawMsg) return null;
+  const acc: { adReply?: Record<string, unknown>; ctwaClid?: string } = {};
+  collectAdInfo(rawMsg, acc);
+  if (!acc.adReply && !acc.ctwaClid) return null;
+  const a = acc.adReply ?? {};
+  return {
+    sourceId: (a.sourceId as string) ?? null,
+    title: (a.title as string) ?? null,
+    body: (a.body as string) ?? null,
+    sourceUrl: (a.sourceUrl as string) ?? null,
+    thumbnailUrl: (a.thumbnailUrl as string) ?? null,
+    ctwaClid: acc.ctwaClid ?? (a.ctwaClid as string) ?? null,
+  };
 }
 
 function extractContent(message: Record<string, unknown> | null | undefined): string {
@@ -131,20 +145,9 @@ export async function POST(req: NextRequest) {
         const phone = extractPhone(remoteJid);
         const isFromMe = msg.key.fromMe === true;
         const content = extractContent(msg.message);
-        // Tenta extrair adReferral de dentro de msg.message (contextInfo.externalAdReplyInfo)
-        // OU diretamente do nível raiz do msg (formato alternativo da Evolution API v2)
-        const adReferralFromMessage = extractAdReferral(msg.message);
-        const adReferralTopLevel = msg.adReferral as Record<string, unknown> | null | undefined;
-        const adReferral = adReferralFromMessage ?? (adReferralTopLevel
-          ? {
-              sourceId: (adReferralTopLevel.sourceId as string) ?? null,
-              title: (adReferralTopLevel.title as string) ?? null,
-              body: (adReferralTopLevel.body as string) ?? null,
-              sourceUrl: (adReferralTopLevel.sourceUrl as string) ?? null,
-              thumbnailUrl: (adReferralTopLevel.thumbnailUrl as string) ?? null,
-            }
-          : null);
-        console.log(`[webhook] adReferral=${JSON.stringify(adReferral)}`);
+        // Varre o msg inteiro (key, message, contextInfo, etc.) atrás de sinais de anúncio do Meta
+        const adReferral = extractAdReferral(msg);
+        if (adReferral) console.log(`[webhook] adReferral DETECTADO=${JSON.stringify(adReferral)}`);
         const pushName = msg.pushName ?? null;
         const tsRaw = msg.messageTimestamp;
         const timestamp = new Date(

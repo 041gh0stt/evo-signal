@@ -7,6 +7,7 @@ interface AdReferral {
   body: string | null;
   sourceUrl: string | null;
   thumbnailUrl: string | null;
+  ctwaClid: string | null;
 }
 
 interface InboundMessage {
@@ -136,6 +137,59 @@ export async function processMessage(msg: InboundMessage) {
       ? workspace.trackableLinks.find((l) => l.welcomeMessage && normalizeText(l.welcomeMessage) === contentNorm)
       : undefined;
 
+  // Mensagens automáticas de saudação dos anúncios de mensagem do Meta (cadastradas nas
+  // Configurações). Todo lead que clica num anúncio de mensagem envia exatamente esse texto,
+  // então é uma detecção determinística mesmo quando a Evolution API não manda o adReferral.
+  const adGreetings = (workspace.metaAdMessages ?? "")
+    .split(/\n+/)
+    .map((g) => normalizeText(g))
+    .filter((g) => g.length > 4);
+  const matchesAdGreeting =
+    msg.direction === "inbound" &&
+    contentNorm.length > 4 &&
+    adGreetings.some((g) => contentNorm === g || contentNorm.includes(g));
+
+  // Determina a origem do lead no momento da criação da conversa, em ordem de prioridade.
+  function buildOriginData(): Record<string, unknown> {
+    // 1. Anúncio do Meta detectado pelo Baileys (Clique p/ WhatsApp ou ctwaClid)
+    if (msg.adReferral && (msg.adReferral.sourceId || msg.adReferral.title || msg.adReferral.body || msg.adReferral.sourceUrl || msg.adReferral.ctwaClid)) {
+      return {
+        origin: "meta_ads",
+        adSourceId: msg.adReferral.sourceId ?? msg.adReferral.ctwaClid ?? null,
+        adTitle: msg.adReferral.title,
+        adBody: msg.adReferral.body,
+        adSourceUrl: msg.adReferral.sourceUrl,
+        adThumbnailUrl: msg.adReferral.thumbnailUrl,
+      };
+    }
+    // 2. Link Rastreável (herda UTMs e deduz origem)
+    if (matchedLink) {
+      const clickIsRecent = matchedLink.lastClickAt
+        ? Date.now() - matchedLink.lastClickAt.getTime() < 10 * 60 * 1000
+        : false;
+      return {
+        origin: deriveOriginFromUtm(matchedLink.utmSource, matchedLink.utmMedium),
+        trackableLinkId: matchedLink.id,
+        utmSource: matchedLink.utmSource,
+        utmMedium: matchedLink.utmMedium,
+        utmCampaign: matchedLink.utmCampaign,
+        ...(clickIsRecent && {
+          clientIp: matchedLink.lastClickIp,
+          clientUserAgent: matchedLink.lastClickUserAgent,
+          fbc: matchedLink.lastClickFbc,
+          gclid: matchedLink.lastClickGclid,
+        }),
+      };
+    }
+    // 3. Mensagem-padrão de anúncio de mensagem do Meta (configurada pelo usuário)
+    if (matchesAdGreeting) {
+      return { origin: "meta_ads", adTitle: "Anúncio de mensagem do Meta" };
+    }
+    return {};
+  }
+
+  const originData = buildOriginData();
+
   // Upsert conversation — cria para inbound E outbound
   // Para outbound, não usa pushName (seria seu próprio nome, não o do contato)
   const conversation = await prisma.conversation.upsert({
@@ -147,42 +201,7 @@ export async function processMessage(msg: InboundMessage) {
       name: msg.direction === "inbound" ? (msg.name ?? null) : null,
       firstMessageAt: msg.timestamp,
       lastMessageAt: msg.timestamp,
-      // Se a primeira mensagem veio de um anúncio "Clique para o WhatsApp" (Meta Ads),
-      // marca a origem e guarda os dados do criativo para exibição posterior
-      // Qualquer campo não-nulo no adReferral indica que veio de anúncio Meta Ads
-      ...(msg.adReferral && (msg.adReferral.sourceId || msg.adReferral.title || msg.adReferral.body || msg.adReferral.sourceUrl)
-        ? {
-            origin: "meta_ads",
-            adSourceId: msg.adReferral.sourceId,
-            adTitle: msg.adReferral.title,
-            adBody: msg.adReferral.body,
-            adSourceUrl: msg.adReferral.sourceUrl,
-            adThumbnailUrl: msg.adReferral.thumbnailUrl,
-          }
-        // Senão, se identificamos que veio de um Link Rastreável, herda os UTMs
-        // configurados nele e deduz a origem (ex: meta_ads se o UTM source for meta/facebook/instagram)
-        : matchedLink
-          ? (() => {
-              // Considera clique "válido" se foi nos últimos 10 minutos
-              const clickIsRecent = matchedLink.lastClickAt
-                ? Date.now() - matchedLink.lastClickAt.getTime() < 10 * 60 * 1000
-                : false;
-              return {
-                origin: deriveOriginFromUtm(matchedLink.utmSource, matchedLink.utmMedium),
-                trackableLinkId: matchedLink.id,
-                utmSource: matchedLink.utmSource,
-                utmMedium: matchedLink.utmMedium,
-                utmCampaign: matchedLink.utmCampaign,
-                // Copia dados do clique para enriquecer eventos do Meta Pixel
-                ...(clickIsRecent && {
-                  clientIp: matchedLink.lastClickIp,
-                  clientUserAgent: matchedLink.lastClickUserAgent,
-                  fbc: matchedLink.lastClickFbc,
-                  gclid: matchedLink.lastClickGclid,
-                }),
-              };
-            })()
-          : {}),
+      ...originData,
     },
     update: {
       lastMessageAt: msg.timestamp,
