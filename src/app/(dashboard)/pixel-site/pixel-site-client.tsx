@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, FlaskConical, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Copy, Check, FlaskConical, Loader2, CheckCircle2, XCircle, ExternalLink } from "lucide-react";
 
-type TestStatus = "idle" | "loading" | "ok" | "error";
+type TestStatus = "idle" | "loading" | "ok" | "error" | "not_found";
 
 export function PixelSiteClient({ snippet, workspaceId }: { snippet: string; workspaceId: string }) {
   const [copied, setCopied] = useState(false);
+  const [siteUrl, setSiteUrl] = useState("");
   const [testStatus, setTestStatus] = useState<TestStatus>("idle");
   const [testMsg, setTestMsg] = useState("");
 
@@ -17,32 +18,28 @@ export function PixelSiteClient({ snippet, workspaceId }: { snippet: string; wor
     });
   }
 
-  async function handleTest() {
+  async function handleVerify() {
+    if (!siteUrl.trim()) return;
     setTestStatus("loading");
     setTestMsg("");
-    const fakeGclid = `pingo_test_${Date.now()}`;
+
+    let url = siteUrl.trim();
+    if (!url.startsWith("http")) url = "https://" + url;
+
     try {
-      const res = await fetch(`/api/pixel/${workspaceId}/event`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventName: "TestPixel",
-          url: window.location.href,
-          gclid: fakeGclid,
-          utmSource: "google",
-          utmMedium: "cpc",
-          utmCampaign: "teste-pingo",
-          customData: { test: true },
-        }),
-      });
-      if (res.ok) {
-        setTestStatus("ok");
-        setTestMsg(`Evento recebido com gclid: ${fakeGclid}`);
-      } else {
-        const d = await res.json().catch(() => ({}));
+      const res = await fetch(
+        `/api/pixel/${workspaceId}/verify?url=${encodeURIComponent(url)}`
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
         setTestStatus("error");
-        setTestMsg(d.error ?? `Status ${res.status}`);
+        setTestMsg(data.error ?? "Erro ao verificar");
+        return;
       }
+
+      setTestStatus(data.found ? "ok" : "not_found");
+      setTestMsg(data.detail ?? "");
     } catch (e) {
       setTestStatus("error");
       setTestMsg(e instanceof Error ? e.message : "Erro de rede");
@@ -82,32 +79,52 @@ export function PixelSiteClient({ snippet, workspaceId }: { snippet: string; wor
         </Button>
       </div>
 
-      {/* Botão de teste */}
-      <div className="pt-1 space-y-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleTest}
-          disabled={testStatus === "loading"}
-          className="border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 gap-2"
-        >
-          {testStatus === "loading" ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <FlaskConical className="w-3.5 h-3.5 text-yellow-400" />
-          )}
-          Testar Pixel
-        </Button>
+      {/* Verificador de instalação */}
+      <div className="space-y-2 pt-1">
+        <p className="text-xs text-zinc-400 font-medium flex items-center gap-1.5">
+          <FlaskConical className="w-3.5 h-3.5 text-yellow-400" />
+          Verificar instalação na sua página
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="url"
+            value={siteUrl}
+            onChange={(e) => { setSiteUrl(e.target.value); setTestStatus("idle"); }}
+            onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+            placeholder="https://seusite.com.br"
+            className="flex-1 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder:text-zinc-600 text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <Button
+            size="sm"
+            onClick={handleVerify}
+            disabled={testStatus === "loading" || !siteUrl.trim()}
+            className="bg-blue-600 hover:bg-blue-500 text-white gap-1.5 shrink-0"
+          >
+            {testStatus === "loading" ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <ExternalLink className="w-3.5 h-3.5" />
+            )}
+            {testStatus === "loading" ? "Verificando..." : "Verificar"}
+          </Button>
+        </div>
 
         {testStatus === "ok" && (
           <div className="flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-xs font-semibold text-emerald-400">Pixel funcionando!</p>
+              <p className="text-xs font-semibold text-emerald-400">Pixel instalado corretamente!</p>
               <p className="text-[11px] text-emerald-300/70 mt-0.5">{testMsg}</p>
-              <p className="text-[11px] text-zinc-500 mt-1">
-                Verifique nos eventos abaixo o registro <span className="text-zinc-300">TestPixel</span> com badge <span className="text-yellow-400">Google Ads</span>.
-              </p>
+            </div>
+          </div>
+        )}
+
+        {testStatus === "not_found" && (
+          <div className="flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2.5">
+            <XCircle className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-yellow-400">Pixel não encontrado</p>
+              <p className="text-[11px] text-yellow-300/70 mt-0.5">{testMsg}</p>
             </div>
           </div>
         )}
@@ -116,7 +133,7 @@ export function PixelSiteClient({ snippet, workspaceId }: { snippet: string; wor
           <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2.5">
             <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-xs font-semibold text-red-400">Erro ao testar pixel</p>
+              <p className="text-xs font-semibold text-red-400">Erro ao verificar</p>
               <p className="text-[11px] text-red-300/70 mt-0.5">{testMsg}</p>
             </div>
           </div>
