@@ -30,7 +30,12 @@ export async function GET(
 
   try {
     const res = await fetch(parsedUrl.toString(), {
-      headers: { "User-Agent": "PingoPixelVerifier/1.0" },
+      headers: {
+        "User-Agent": "PingoPixelVerifier/1.0",
+        "Cache-Control": "no-cache, no-store",
+        "Pragma": "no-cache",
+      },
+      cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
 
