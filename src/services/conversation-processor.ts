@@ -195,7 +195,7 @@ export async function processMessage(msg: InboundMessage) {
     if (msg.direction !== "inbound") return {};
     const since = new Date(Date.now() - 30 * 60 * 1000);
     const click = await prisma.sitePixelEvent.findFirst({
-      where: { workspaceId: workspace.id, eventName: "WhatsAppClick", createdAt: { gte: since } },
+      where: { workspaceId: workspace!.id, eventName: "WhatsAppClick", createdAt: { gte: since } },
       orderBy: { createdAt: "desc" },
       select: { utmSource: true, utmMedium: true, utmCampaign: true, gclid: true, fbc: true, fbclid: true },
     });
