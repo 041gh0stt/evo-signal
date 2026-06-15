@@ -29,12 +29,11 @@ export async function GET(
   }
 
   try {
+    // Adiciona parâmetro de cache-busting para bypassar WP Rocket e similares
+    parsedUrl.searchParams.set("_pingo", Date.now().toString());
+
     const res = await fetch(parsedUrl.toString(), {
-      headers: {
-        "User-Agent": "PingoPixelVerifier/1.0",
-        "Cache-Control": "no-cache, no-store",
-        "Pragma": "no-cache",
-      },
+      headers: { "User-Agent": "PingoPixelVerifier/1.0" },
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
