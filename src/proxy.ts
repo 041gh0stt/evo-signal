@@ -20,7 +20,7 @@ export function proxy(req: NextRequest) {
   const isLoggedIn = !!sessionToken;
 
   // /demo* cobre todas as páginas demo (dashboard, funil, conversas, links, pixel, clientes, configuracoes)
-  if (!isLoggedIn && !isPublicAuthPage && !pathname.startsWith("/onboarding") && !pathname.startsWith("/demo") && !pathname.startsWith("/r/") && !pathname.startsWith("/conectar/") && !pathname.startsWith("/convite/")) {
+  if (!isLoggedIn && !isPublicAuthPage && !pathname.startsWith("/onboarding") && !pathname.startsWith("/demo") && !pathname.startsWith("/r/") && !pathname.startsWith("/conectar/") && !pathname.startsWith("/convite/") && !pathname.startsWith("/landing")) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
