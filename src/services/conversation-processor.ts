@@ -188,7 +188,32 @@ export async function processMessage(msg: InboundMessage) {
     return {};
   }
 
-  const originData = buildOriginData();
+  // 4. WhatsAppClick recente do Pixel de Site (capturado pelo pingo-pixel.js na landing page)
+  // Busca o clique mais recente nos últimos 30 min para este workspace — indica que o visitante
+  // clicou num botão de WhatsApp na landing page antes de mandar a primeira mensagem.
+  async function getPixelClickOrigin(): Promise<Record<string, unknown>> {
+    if (msg.direction !== "inbound") return {};
+    const since = new Date(Date.now() - 30 * 60 * 1000);
+    const click = await prisma.sitePixelEvent.findFirst({
+      where: { workspaceId: workspace.id, eventName: "WhatsAppClick", createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      select: { utmSource: true, utmMedium: true, utmCampaign: true, gclid: true, fbc: true, fbclid: true },
+    });
+    if (!click) return {};
+    const origin = deriveOriginFromUtm(click.utmSource, click.utmMedium);
+    if (origin === "untracked") return {};
+    return {
+      origin,
+      utmSource: click.utmSource,
+      utmMedium: click.utmMedium,
+      utmCampaign: click.utmCampaign,
+      gclid: click.gclid,
+      fbc: click.fbc ?? (click.fbclid ? `fb.1.${Date.now()}.${click.fbclid}` : null),
+    };
+  }
+
+  const baseOrigin = buildOriginData();
+  const originData = Object.keys(baseOrigin).length > 0 ? baseOrigin : await getPixelClickOrigin();
 
   // Upsert conversation — cria para inbound E outbound
   // Para outbound, não usa pushName (seria seu próprio nome, não o do contato)
