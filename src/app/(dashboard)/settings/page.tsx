@@ -588,10 +588,16 @@ export default function SettingsPage() {
           <h2 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
             <Megaphone className="w-4 h-4 text-blue-400" />
             Anúncios de Mensagem do Meta
+            <span className="text-[10px] font-medium text-zinc-400 bg-zinc-800 border border-zinc-700 rounded-full px-2 py-0.5">Opcional</span>
           </h2>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Cole aqui a mensagem automática de cada anúncio de mensagem (a frase que o lead já chega enviando).
-            Todo contato que entrar com uma dessas frases é marcado como <span className="text-blue-400">Meta Ads</span> automaticamente.
+          <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+            Os leads que entram por anúncios <span className="text-blue-400">Click to WhatsApp</span> já são reconhecidos automaticamente,
+            com campanha, conjunto e anúncio — você <span className="text-zinc-300">não precisa configurar nada aqui</span> para isso funcionar.
+          </p>
+          <p className="text-xs text-zinc-500 mt-1.5 leading-relaxed">
+            Este campo é uma <span className="text-zinc-300">rede de segurança</span>: alguns anúncios de mensagem não enviam os dados do
+            anúncio junto com a primeira mensagem. Nesses casos, se a frase que o lead chega enviando estiver cadastrada aqui,
+            o Pingo ainda marca o contato como <span className="text-blue-400">Meta Ads</span> (sem os detalhes de campanha).
           </p>
         </div>
 
@@ -604,8 +610,9 @@ export default function SettingsPage() {
             placeholder={"Olá, vim do anúncio, e gostaria de agendar minha consulta\nGostaria de mais informações sobre o tratamento"}
             className="w-full rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder:text-zinc-600 text-sm px-3 py-2.5 resize-y focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
-          <p className="text-xs text-zinc-600">
+          <p className="text-xs text-zinc-600 leading-relaxed">
             Você encontra essa frase em cada anúncio dentro do Gerenciador de Anúncios do Meta, na prévia do anúncio (campo &quot;mensagem&quot;).
+            Pode deixar em branco se todos os seus anúncios forem do tipo Click to WhatsApp.
           </p>
         </div>
 
