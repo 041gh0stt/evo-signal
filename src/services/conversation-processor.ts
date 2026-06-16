@@ -6,14 +6,19 @@ async function fetchMetaAdDetails(adId: string, accessToken: string): Promise<{ 
   try {
     const url = `https://graph.facebook.com/v19.0/${adId}?fields=name,adset%7Bname%7D,campaign%7Bname%7D&access_token=${accessToken}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return {};
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.error(`[fetchMetaAdDetails] Graph API ${res.status} para adId=${adId}: ${errBody.slice(0, 300)}`);
+      return {};
+    }
     const data = await res.json() as { name?: string; adset?: { name?: string }; campaign?: { name?: string } };
     return {
       adName: data.name ?? undefined,
       adSetName: data.adset?.name ?? undefined,
       adCampaignName: data.campaign?.name ?? undefined,
     };
-  } catch {
+  } catch (err) {
+    console.error(`[fetchMetaAdDetails] erro para adId=${adId}:`, err instanceof Error ? err.message : err);
     return {};
   }
 }
@@ -255,15 +260,6 @@ export async function processMessage(msg: InboundMessage) {
     },
   });
 
-  // Se é uma conversa nova com adSourceId, busca detalhes da campanha na API do Meta em background
-  if (isNewContact && conversation.adSourceId && workspace.metaAccessToken) {
-    fetchMetaAdDetails(conversation.adSourceId, workspace.metaAccessToken).then((details) => {
-      if (details.adCampaignName || details.adSetName || details.adName) {
-        prisma.conversation.update({ where: { id: conversation.id }, data: details }).catch(() => {});
-      }
-    });
-  }
-
   // Save message
   try {
     await prisma.message.create({
@@ -280,6 +276,21 @@ export async function processMessage(msg: InboundMessage) {
     // Ignora duplicata (messageId já existe), loga outros erros
     const code = (e as { code?: string })?.code;
     if (code !== "P2002") console.error(`[processMessage] message.create error:`, e);
+  }
+
+  // Conversa nova vinda de anúncio: busca nome de campanha/conjunto/anúncio na Graph API do Meta.
+  // PRECISA ser awaited — em serverless (Vercel) promises não-aguardadas são mortas quando a
+  // resposta do webhook é enviada, então um .then() solto nunca chega a salvar os dados.
+  // Usa metaUserToken (OAuth do usuário, tem ads_read) e não metaAccessToken (Conversions API).
+  const adReadToken = workspace.metaUserToken ?? workspace.metaAccessToken;
+  if (isNewContact && conversation.adSourceId && adReadToken) {
+    const details = await fetchMetaAdDetails(conversation.adSourceId, adReadToken);
+    if (details.adCampaignName || details.adSetName || details.adName) {
+      await prisma.conversation.update({ where: { id: conversation.id }, data: details });
+      console.log(`[processMessage] Meta ad details: campanha="${details.adCampaignName}" anuncio="${details.adName}"`);
+    } else {
+      console.log(`[processMessage] Meta ad details VAZIO para adSourceId=${conversation.adSourceId}`);
+    }
   }
 
   // ── 1. Primeiro contato: contato novo cai automaticamente na etapa marcada

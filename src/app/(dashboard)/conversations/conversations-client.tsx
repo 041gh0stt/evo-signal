@@ -258,7 +258,14 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
     if (advanced.trackableLinkId && c.trackableLink?.id !== advanced.trackableLinkId) return false;
     if (advanced.utmSource && !c.utmSource?.toLowerCase().includes(advanced.utmSource.toLowerCase())) return false;
     if (advanced.utmMedium && !c.utmMedium?.toLowerCase().includes(advanced.utmMedium.toLowerCase())) return false;
-    if (advanced.utmCampaign && !c.utmCampaign?.toLowerCase().includes(advanced.utmCampaign.toLowerCase())) return false;
+    if (advanced.utmCampaign) {
+      const needle = advanced.utmCampaign.toLowerCase();
+      // Leads de link rastreável guardam em utmCampaign; leads de anúncio do Meta em adCampaignName
+      const matchesCampaign =
+        c.utmCampaign?.toLowerCase().includes(needle) ||
+        c.adCampaignName?.toLowerCase().includes(needle);
+      if (!matchesCampaign) return false;
+    }
     if (advanced.firstMsgRange.from && new Date(c.firstMessageAt) < new Date(advanced.firstMsgRange.from)) return false;
     if (advanced.firstMsgRange.to && new Date(c.firstMessageAt) > new Date(advanced.firstMsgRange.to + "T23:59:59")) return false;
     if (advanced.lastMsgRange.from && new Date(c.lastMessageAt) < new Date(advanced.lastMsgRange.from)) return false;
@@ -1005,9 +1012,9 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
                     <span className="text-xs text-zinc-300">{detail.adName}</span>
                   </div>
                 )}
-                {!detail.adCampaignName && detail.adTitle && (
+                {!detail.adName && detail.adTitle && (
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Anúncio</span>
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Título do anúncio</span>
                     <span className="text-xs text-zinc-300">{detail.adTitle}</span>
                   </div>
                 )}
