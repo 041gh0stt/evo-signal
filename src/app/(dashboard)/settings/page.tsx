@@ -56,6 +56,7 @@ export default function SettingsPage() {
   const [adAccountOpen, setAdAccountOpen] = useState(false);
   const [savingAdAccount, setSavingAdAccount] = useState(false);
   const [disconnectingMeta, setDisconnectingMeta] = useState(false);
+  const [backfillingAds, setBackfillingAds] = useState(false);
 
   const loadAdAccounts = useCallback(async () => {
     setLoadingAdAccounts(true);
@@ -96,6 +97,29 @@ export default function SettingsPage() {
       toast.success("Meta Ads desconectado");
     } else {
       toast.error("Erro ao desconectar");
+    }
+  }
+
+  async function handleBackfillAds() {
+    setBackfillingAds(true);
+    try {
+      const res = await fetch("/api/workspace/meta/backfill-ads", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.updated > 0) {
+          toast.success(`${data.updated} ${data.updated === 1 ? "lead atualizado" : "leads atualizados"} com dados de campanha.`);
+        } else if (data.total === 0) {
+          toast.info("Nenhum lead de anúncio pendente de atualização.");
+        } else {
+          toast.warning("Não foi possível obter os dados de campanha. Verifique se a conta do Meta tem acesso aos anúncios.");
+        }
+      } else {
+        toast.error(data.error ?? "Erro ao atualizar campanhas");
+      }
+    } catch {
+      toast.error("Erro de conexão");
+    } finally {
+      setBackfillingAds(false);
     }
   }
 
@@ -456,6 +480,22 @@ export default function SettingsPage() {
                   Não foi possível carregar as contas do Meta. Clique no dropdown para tentar novamente ou reconecte o Meta Ads.
                 </p>
               )}
+            </div>
+
+            <div className="flex flex-col gap-2 pt-1 border-t border-zinc-800">
+              <p className="text-xs text-zinc-500 pt-2">
+                Buscar nome de campanha, conjunto e anúncio dos leads que já entraram pelo Meta Ads e ainda não têm esses dados.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBackfillAds}
+                disabled={backfillingAds}
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 gap-1.5 self-start"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${backfillingAds ? "animate-spin" : ""}`} />
+                {backfillingAds ? "Atualizando..." : "Atualizar dados de campanha"}
+              </Button>
             </div>
 
             <Button
