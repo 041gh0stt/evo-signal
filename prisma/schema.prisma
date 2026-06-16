@@ -184,6 +184,9 @@ model Conversation {
   adBody          String?            @db.Text
   adSourceUrl     String?            @db.Text
   adThumbnailUrl  String?            @db.Text
+  adCampaignName  String?            @db.Text
+  adSetName       String?            @db.Text
+  adName          String?            @db.Text
   // Dados de contexto do clique para enriquecer eventos de pixel e atribuição
   clientIp        String?
   clientUserAgent String?            @db.Text

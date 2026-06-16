@@ -1,6 +1,23 @@
 import { prisma } from "@/lib/prisma";
 import { fireConversionEvent } from "./meta-pixel";
 
+// Busca nome da campanha, conjunto e anúncio na Graph API do Meta usando o adSourceId
+async function fetchMetaAdDetails(adId: string, accessToken: string): Promise<{ adCampaignName?: string; adSetName?: string; adName?: string }> {
+  try {
+    const url = `https://graph.facebook.com/v19.0/${adId}?fields=name,adset%7Bname%7D,campaign%7Bname%7D&access_token=${accessToken}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return {};
+    const data = await res.json() as { name?: string; adset?: { name?: string }; campaign?: { name?: string } };
+    return {
+      adName: data.name ?? undefined,
+      adSetName: data.adset?.name ?? undefined,
+      adCampaignName: data.campaign?.name ?? undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 interface AdReferral {
   sourceId: string | null;
   title: string | null;
@@ -236,6 +253,15 @@ export async function processMessage(msg: InboundMessage) {
       ...(msg.direction === "inbound" && msg.name && { name: msg.name }),
     },
   });
+
+  // Se é uma conversa nova com adSourceId, busca detalhes da campanha na API do Meta em background
+  if (isNewContact && conversation.adSourceId && workspace.metaAccessToken) {
+    fetchMetaAdDetails(conversation.adSourceId, workspace.metaAccessToken).then((details) => {
+      if (details.adCampaignName || details.adSetName || details.adName) {
+        prisma.conversation.update({ where: { id: conversation.id }, data: details }).catch(() => {});
+      }
+    });
+  }
 
   // Save message
   try {

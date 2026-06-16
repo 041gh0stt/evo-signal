@@ -35,6 +35,7 @@ interface Conversation {
   utmSource: string | null; utmMedium: string | null; utmCampaign: string | null;
   adSourceId: string | null; adTitle: string | null; adBody: string | null;
   adSourceUrl: string | null; adThumbnailUrl: string | null;
+  adCampaignName: string | null; adSetName: string | null; adName: string | null;
   firstMessageAt: Date; lastMessageAt: Date;
   _count: { messages: number; pixelFires: number };
 }
@@ -982,23 +983,39 @@ export function ConversationsClient({ conversations, funnelStages, stats, pagina
 
           {detail?.adSourceId && (
             <div className="px-4 py-3 border-b border-zinc-800 shrink-0 bg-blue-500/5">
-              <p className="text-xs font-semibold text-blue-400 flex items-center gap-1.5 mb-2">
+              <p className="text-xs font-semibold text-blue-400 flex items-center gap-1.5 mb-2.5">
                 <Link2 className="w-3.5 h-3.5" /> Veio de um anúncio (Meta Ads)
               </p>
-              <div className="flex gap-2.5">
-                {detail.adThumbnailUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={detail.adThumbnailUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0 bg-zinc-800" />
+              <div className="space-y-1.5">
+                {detail.adCampaignName && (
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Campanha</span>
+                    <span className="text-xs text-zinc-300">{detail.adCampaignName}</span>
+                  </div>
                 )}
-                <div className="min-w-0">
-                  {detail.adTitle && <p className="text-sm font-medium text-zinc-200 truncate">{detail.adTitle}</p>}
-                  {detail.adBody && <p className="text-xs text-zinc-500 line-clamp-2">{detail.adBody}</p>}
-                  {detail.adSourceUrl && (
-                    <a href={detail.adSourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
-                      Ver anúncio
-                    </a>
-                  )}
-                </div>
+                {detail.adSetName && (
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Conjunto de anúncios</span>
+                    <span className="text-xs text-zinc-300">{detail.adSetName}</span>
+                  </div>
+                )}
+                {detail.adName && (
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Anúncio</span>
+                    <span className="text-xs text-zinc-300">{detail.adName}</span>
+                  </div>
+                )}
+                {!detail.adCampaignName && detail.adTitle && (
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Anúncio</span>
+                    <span className="text-xs text-zinc-300">{detail.adTitle}</span>
+                  </div>
+                )}
+                {detail.adSourceUrl && (
+                  <a href={detail.adSourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline inline-block pt-0.5">
+                    Ver anúncio ↗
+                  </a>
+                )}
               </div>
             </div>
           )}
