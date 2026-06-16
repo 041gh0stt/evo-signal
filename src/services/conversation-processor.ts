@@ -25,6 +25,7 @@ interface AdReferral {
   sourceUrl: string | null;
   thumbnailUrl: string | null;
   ctwaClid: string | null;
+  isMetaAd?: boolean;
 }
 
 interface InboundMessage {
@@ -168,8 +169,8 @@ export async function processMessage(msg: InboundMessage) {
 
   // Determina a origem do lead no momento da criação da conversa, em ordem de prioridade.
   function buildOriginData(): Record<string, unknown> {
-    // 1. Anúncio do Meta detectado pelo Baileys (Clique p/ WhatsApp ou ctwaClid)
-    if (msg.adReferral && (msg.adReferral.sourceId || msg.adReferral.title || msg.adReferral.body || msg.adReferral.sourceUrl || msg.adReferral.ctwaClid)) {
+    // 1. Anúncio do Meta detectado pelo Baileys (Clique p/ WhatsApp, ctwaClid ou sinais de conversão)
+    if (msg.adReferral && (msg.adReferral.isMetaAd || msg.adReferral.sourceId || msg.adReferral.title || msg.adReferral.body || msg.adReferral.sourceUrl || msg.adReferral.ctwaClid)) {
       return {
         origin: "meta_ads",
         adSourceId: msg.adReferral.sourceId ?? msg.adReferral.ctwaClid ?? null,

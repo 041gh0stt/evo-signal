@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { processMessage } from "@/services/conversation-processor";
 import { prisma } from "@/lib/prisma";
 
-function extractPhone(remoteJid: string): string {
+function extractPhone(remoteJid: string, altJid?: string | null): string {
+  // Mensagens de anúncio (Click-to-WhatsApp) chegam com remoteJid no formato @lid,
+  // que NÃO é o número real do contato. A Evolution envia o número verdadeiro em
+  // remoteJidAlt / senderPn no formato @s.whatsapp.net — preferimos sempre esse.
+  if (remoteJid.includes("@lid") && altJid && altJid.includes("@s.whatsapp.net")) {
+    return altJid.replace("@s.whatsapp.net", "");
+  }
   // @s.whatsapp.net → número real
   if (remoteJid.includes("@s.whatsapp.net")) {
     return remoteJid.replace("@s.whatsapp.net", "");
   }
-  // @lid → identificador privado, usa prefixo lid_
+  // @lid sem alternativa conhecida → identificador privado, usa prefixo lid_
   if (remoteJid.includes("@lid")) {
     return `lid_${remoteJid.replace("@lid", "")}`;
   }
@@ -22,16 +28,20 @@ interface AdReferral {
   sourceUrl: string | null;
   thumbnailUrl: string | null;
   ctwaClid: string | null;
+  isMetaAd: boolean;
 }
 
 // Percorre RECURSIVAMENTE o objeto procurando os sinais de anúncio do Meta em
-// qualquer nível, já que a Evolution API v2 posiciona o externalAdReplyInfo /
-// ctwaClid em lugares diferentes dependendo do tipo de mensagem e da versão.
-// - externalAdReplyInfo: dados do criativo (título, corpo, thumbnail) — anúncio "Clique para WhatsApp"
-// - ctwaClid: Click-To-WhatsApp click id — presente em todo lead de anúncio de mensagem, mesmo sem o criativo
+// qualquer nível, já que a Evolution API v2 posiciona esses campos em lugares
+// diferentes dependendo do tipo de mensagem e da versão.
+// - externalAdReply: dados do criativo (sourceId, título, corpo, thumbnail) — campo REAL do Baileys
+//   (antes procurávamos "externalAdReplyInfo", que é o nome da INTERFACE, não do campo no payload)
+// - ctwaClid: Click-To-WhatsApp click id — presente em todo lead de anúncio de mensagem
+// - conversionSource ("FB_Ads"/"IG_Ads") e entryPointConversionSource ("ctwa_ad"): sinais de
+//   conversão presentes em TODO lead vindo de anúncio, mesmo quando o criativo não vem junto
 function collectAdInfo(
   obj: unknown,
-  acc: { adReply?: Record<string, unknown>; ctwaClid?: string },
+  acc: { adReply?: Record<string, unknown>; ctwaClid?: string; metaSignal?: boolean },
   depth = 0
 ): void {
   if (!obj || typeof obj !== "object" || depth > 8) return;
@@ -40,11 +50,20 @@ function collectAdInfo(
     return;
   }
   const rec = obj as Record<string, unknown>;
-  if (!acc.adReply && rec.externalAdReplyInfo && typeof rec.externalAdReplyInfo === "object") {
-    acc.adReply = rec.externalAdReplyInfo as Record<string, unknown>;
+  // Aceita o nome correto do campo (externalAdReply) e o antigo (externalAdReplyInfo) por segurança
+  const adReplyObj = rec.externalAdReply ?? rec.externalAdReplyInfo;
+  if (!acc.adReply && adReplyObj && typeof adReplyObj === "object") {
+    acc.adReply = adReplyObj as Record<string, unknown>;
   }
   if (!acc.ctwaClid && typeof rec.ctwaClid === "string" && rec.ctwaClid) {
     acc.ctwaClid = rec.ctwaClid;
+  }
+  if (!acc.metaSignal) {
+    const cs = typeof rec.conversionSource === "string" ? rec.conversionSource.toLowerCase() : "";
+    const eps = typeof rec.entryPointConversionSource === "string" ? rec.entryPointConversionSource.toLowerCase() : "";
+    if (cs.includes("ads") || eps.includes("ctwa")) {
+      acc.metaSignal = true;
+    }
   }
   for (const key in rec) {
     collectAdInfo(rec[key], acc, depth + 1);
@@ -54,9 +73,9 @@ function collectAdInfo(
 // Extrai dados do anúncio do Meta varrendo o objeto inteiro da mensagem (raw msg).
 function extractAdReferral(rawMsg: Record<string, unknown> | null | undefined): AdReferral | null {
   if (!rawMsg) return null;
-  const acc: { adReply?: Record<string, unknown>; ctwaClid?: string } = {};
+  const acc: { adReply?: Record<string, unknown>; ctwaClid?: string; metaSignal?: boolean } = {};
   collectAdInfo(rawMsg, acc);
-  if (!acc.adReply && !acc.ctwaClid) return null;
+  if (!acc.adReply && !acc.ctwaClid && !acc.metaSignal) return null;
   const a = acc.adReply ?? {};
   return {
     sourceId: (a.sourceId as string) ?? null,
@@ -65,6 +84,7 @@ function extractAdReferral(rawMsg: Record<string, unknown> | null | undefined): 
     sourceUrl: (a.sourceUrl as string) ?? null,
     thumbnailUrl: (a.thumbnailUrl as string) ?? null,
     ctwaClid: acc.ctwaClid ?? (a.ctwaClid as string) ?? null,
+    isMetaAd: true,
   };
 }
 
@@ -142,7 +162,10 @@ export async function POST(req: NextRequest) {
         // Ignora grupos
         if (remoteJid.includes("@g.us") || remoteJid.includes("@newsletter")) continue;
 
-        const phone = extractPhone(remoteJid);
+        // Número real quando remoteJid vem como @lid (mensagens de anúncio)
+        const altJid: string | null =
+          msg.key.remoteJidAlt ?? msg.key.senderPn ?? msg.senderPn ?? msg.key.participantAlt ?? null;
+        const phone = extractPhone(remoteJid, altJid);
         const isFromMe = msg.key.fromMe === true;
         const content = extractContent(msg.message);
         // Varre o msg inteiro (key, message, contextInfo, etc.) atrás de sinais de anúncio do Meta
